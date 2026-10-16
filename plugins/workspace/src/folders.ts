@@ -110,6 +110,8 @@ export function useFolders(refreshKey: unknown) {
       call("create", { projectId, folderId: parentId, name, relativePath: relativePath ?? slug(name) }),
     renameFolder: (projectId: string, folderId: string, name: string) => call("rename", { projectId, folderId, name }),
     reparentFolder: (folderId: string, parentId: string | null) => call("section_reparent", { folderId, parentId }),
+    /** Save the order of one set of sibling folders (every sibling, first to last). Only the sort changes; nothing moves on disk. */
+    reorderFolders: (projectId: string, parentId: string | null, ids: string[]) => call("reorder", { kind: "sections", projectId, parentId, ids }),
     forgetFolder: (projectId: string, folderId: string) => call("forget", { projectId, folderId }),
     placeThread: (threadId: string, projectId: string, folderId: string | null) =>
       call("thread_place", { threadId, projectId, folderId }),
