@@ -25,7 +25,7 @@ export const TAG_CSS: Record<TagColor, string> = {
   sand: "var(--input)",
 };
 
-const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {} };
+const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, threadOrder: [] };
 
 const fail = (verb: string) => (e: unknown) => {
   toast.error(`${verb} failed`, { description: e instanceof Error ? e.message : String(e) });
@@ -34,9 +34,14 @@ const fail = (verb: string) => (e: unknown) => {
 export function useRailState() {
   const rpc = useRpc<typeof rpcContract>();
   const [state, setState] = useState<RailState>(EMPTY);
+  // False until the saved state has arrived, so nothing writes over it with the empty default.
+  const [loaded, setLoaded] = useState(false);
 
   const refetch = useCallback(() => {
-    rpc.call("state_get").then(setState, () => undefined);
+    rpc.call("state_get").then((s) => {
+      setState(s);
+      setLoaded(true);
+    }, () => undefined);
   }, [rpc]);
   useEffect(refetch, [refetch]);
   useRealtime("rail-state", refetch);
@@ -45,6 +50,16 @@ export function useRailState() {
 
   return {
     state,
+    loaded,
+    /** Save the member's own order of chats (ids, first to last), for Keep my order. */
+    setThreadOrder: (order: string[]) => {
+      const next = [...new Set(order)].slice(0, 2000);
+      setState((s) => ({ ...s, threadOrder: next }));
+      return rpc.call("thread_order_set", { order: next }).then(setState, (e) => {
+        fail("Reorder")(e);
+        refetch();
+      });
+    },
     createTag: (name: string, color: TagColor) =>
       rpc.call("tag_create", { name, color }).then((tag) => {
         refetch();

@@ -4,6 +4,12 @@
 //   inside, every row marked with its harness.
 // Every row has a right-click menu wired to bb's own thread actions; folders
 // have their own. Chats drag onto folders; folders drag onto folders.
+// With "Keep my order" on (plugin setting keepOrder), chats stay where the
+// member put them: activity never re-sorts a row, a chat waiting on you stays
+// in place instead of moving to Needs you, and a new chat joins the top of its
+// list. Drag a chat onto another to put it above or below (onto a chat in
+// another folder of the same project moves it there too); drop a folder on the
+// top or bottom third of another to put it above or below, the middle to nest.
 // Rail groups (kept only in rail state) hold whole projects and other groups;
 // project headings drag onto them. Children of chats, folders and groups hang
 // off explorer-style tree guides that turn gold while the branch is running.
@@ -18,15 +24,15 @@ import {
   type PluginThreadListProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, useSettings } from "@get-bb/plugin-sdk/app";
 import { LogoOrb } from "./orb";
 import { useVoiceState } from "./voice";
 import { cn } from "@/lib/utils";
-import { GOLD, GOLD_INK, Lattice, Node, ago, byUrgencyThenRecent, caps, harnessOf, stateOf, tnum, type Harness } from "./shared";
+import { GOLD, GOLD_INK, Lattice, Node, ago, asksYou, byNewest, byPlace, byUrgencyThenRecent, caps, harnessOf, stateOf, tnum, type Harness } from "./shared";
 import { PROJECT_FOLDERS_INSTALL, folderOfThread, goTo, newChatInFolderUrl, slug, useFolders, type Directory, type Folder, type FolderData } from "./folders";
 import { Menu, MenuItem, MenuLabel, MenuSeparator, MenuSub } from "./menu";
 import { TAG_CSS, useRailState, type LaterReason, type RailOps, type Tag } from "./rail-state";
-import { LATER_LABEL, StatusMark } from "./status-mark";
+import { ASK, AskMark, FinishedMark, LATER_LABEL, StatusMark } from "./status-mark";
 import { TagChips, TagEditor, TagFilter, TagSwatches, type TagEdit } from "./tags";
 import { NAV_SHORTCUT, setNavMode, useNavMode } from "./nav-fold";
 import { BulkBar } from "./bulk-bar";
@@ -44,6 +50,15 @@ const FOLD = 8;
 const NEEDS_FOLD = 4;
 const DRAG_THREAD = "application/x-nav-thread";
 const DRAG_FOLDER = "application/x-nav-folder";
+
+/** Keep my order: the chat being dragged, and the list it came from.
+ *  dataTransfer cannot be read during dragover, so rows check this to show
+ *  where a drop would land. Lists: "f:<folderId>", "p:<projectId>" (project
+ *  root), "pinned", "later", "c:<parentId>" (sub-agent chats). */
+type DragChat = { id: string; projectId: string; list: string };
+let draggingChat: DragChat | null = null;
+/** The folder being dragged, for the same reason. */
+let draggingFolder: { id: string; projectId: string } | null = null;
 
 /* ----------------------------- persistence ----------------------------- */
 
@@ -202,6 +217,12 @@ type RowCtx = {
   /** Handles ⌘/⇧-click and Select mode; returns true when the click was a selection. */
   onSelectGesture: (id: string, e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) => boolean;
   onNewTag: (threadIds: string[]) => void;
+  /** Keep my order: whether the dragged chat can be dropped next to this row (always false with the setting off). */
+  canPlace: (dragged: DragChat, target: PluginSidebarThread, list: string) => boolean;
+  /** Keep my order: put the dragged chat above (or below) this row, moving it to this row's folder if it came from another. */
+  onPlace: (dragged: DragChat, target: PluginSidebarThread, list: string, after: boolean) => void;
+  /** Row highlights setting: tint and mark finished, asking and failed rows. */
+  highlights: boolean;
 };
 
 /** Copy the project-folders install line, for the greyed-out folder actions. */
@@ -212,8 +233,10 @@ function copyFoldersInstall() {
   );
 }
 
-function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, foldersMissing, onMove, ctx }: {
+function ThreadRow({ thread, list, active, depth, now, onNavigate, moveTargets, foldersMissing, onMove, ctx }: {
   thread: PluginSidebarThread;
+  /** The list this row sits in (see DragChat). */
+  list: string;
   active: boolean;
   depth: number;
   now: number;
@@ -227,6 +250,8 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
   const machineActions = useMachineActions();
   const onMachine = ctx.machine[thread.id];
   const [renaming, setRenaming] = useState(false);
+  // Keep my order: where a dragged chat would land, above or below this row.
+  const [dropAt, setDropAt] = useState<"before" | "after" | null>(null);
   const state = stateOf(thread);
   const h = harnessOf(thread.providerId);
   const later = (ctx.ops.state.later[thread.id]?.reason ?? null) as LaterReason | null;
@@ -254,7 +279,21 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
   const onDragStart = (e: DragEvent<HTMLAnchorElement>) => {
     e.dataTransfer.setData(DRAG_THREAD, JSON.stringify({ id: thread.id, projectId: thread.projectId }));
     e.dataTransfer.effectAllowed = "move";
+    draggingChat = { id: thread.id, projectId: thread.projectId, list };
   };
+  const placeable = () => draggingChat !== null && draggingChat.id !== thread.id && ctx.canPlace(draggingChat, thread, list);
+  const half = (e: DragEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return e.clientY - r.top < r.height / 2 ? ("before" as const) : ("after" as const);
+  };
+
+  // Row highlights: a finished chat (its agent stopped since you last opened
+  // it), one asking you a question, or one that failed is marked in place:
+  // tinted row, coloured edge, bold title. Green finished, blue asking, red failed.
+  const finished = ctx.highlights && state === "unread" && !active;
+  const asking = ctx.highlights && asksYou(thread) && !active;
+  const failed = ctx.highlights && state === "needs" && !active && !asking;
+  const flag = finished ? "var(--success)" : asking ? ASK : failed ? "var(--destructive)" : null;
 
   const anchor = (
     <a
@@ -269,26 +308,58 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
       aria-selected={ctx.selecting || ctx.selected.size > 0 ? isSelected : undefined}
       draggable
       onDragStart={onDragStart}
+      onDragEnd={() => {
+        draggingChat = null;
+      }}
+      onDragOver={(e) => {
+        if (!placeable()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+        setDropAt(half(e));
+      }}
+      onDragLeave={() => setDropAt(null)}
+      onDrop={(e) => {
+        setDropAt(null);
+        const dragged = draggingChat;
+        if (!dragged || !placeable()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        draggingChat = null;
+        ctx.onPlace(dragged, thread, list, half(e) === "after");
+      }}
       data-sidebar-thread-shortcut-target=""
       data-sidebar-thread-id={thread.id}
       aria-current={active ? "page" : undefined}
-      aria-label={`${thread.displayTitle}, ${h.label}${thread.indicatorLabel ? `, ${thread.indicatorLabel}` : ""}`}
+      aria-label={`${thread.displayTitle}, ${h.label}${finished ? ", finished, not opened yet" : asking ? ", waiting for your answer" : ""}${thread.indicatorLabel ? `, ${thread.indicatorLabel}` : ""}`}
       title={thread.displayTitle}
       className={cn(
         "group relative flex h-[34px] items-center gap-2.5 rounded-md pr-2 text-[13.5px] no-underline outline-none transition-colors",
         "hover:bg-[var(--state-hover)] focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent",
         active ? "bg-accent font-semibold text-foreground" : state === "parked" && !later ? "text-muted-foreground" : "text-foreground",
+        flag && "font-semibold",
         isSelected && "bg-[var(--surface-selected)] ring-1 ring-inset ring-[var(--surface-selected-border)]",
       )}
-      style={{ paddingLeft: 10 + depth * 16 }}
+      // isolate: the highlight tint sits above the row's own hover colour but under its text.
+      style={{ paddingLeft: 10 + depth * 16, isolation: "isolate" }}
     >
-      {active ? <span aria-hidden className="absolute inset-y-2 left-0 w-[2px]" style={{ background: GOLD }} /> : null}
+      {flag && !isSelected ? (
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-md" style={{ zIndex: -1, background: `color-mix(in srgb, ${flag} 11%, transparent)` }} />
+      ) : null}
+      {active ? <span aria-hidden className="absolute inset-y-2 left-0 w-[2px]" style={{ background: GOLD }} /> : flag ? <span aria-hidden className="absolute rounded-full" style={{ left: 0, top: 6, bottom: 6, width: 3, background: flag }} /> : null}
+      {dropAt ? (
+        <span aria-hidden className="pointer-events-none absolute rounded-full" style={{ left: 4, right: 4, height: 2, background: GOLD, zIndex: 1, ...(dropAt === "before" ? { top: -1 } : { bottom: -1 }) }} />
+      ) : null}
       {ctx.selecting ? (
         <span aria-hidden className={cn("inline-flex size-[13px] shrink-0 items-center justify-center rounded-[3px] border", isSelected ? "border-foreground bg-foreground text-background" : "border-input bg-background")}>
           {isSelected ? <Icon name="Check" className="size-2.5" /> : null}
         </span>
+      ) : asking ? (
+        <span className="inline-flex w-[11px] shrink-0 items-center justify-center"><AskMark size={14} /></span>
       ) : later && state !== "running" ? (
         <span className="inline-flex w-[11px] shrink-0 items-center justify-center"><StatusMark reason={later} size={13} /></span>
+      ) : finished ? (
+        <span className="inline-flex w-[11px] shrink-0 items-center justify-center"><FinishedMark size={14} /></span>
       ) : (
         <Node state={state} />
       )}
@@ -554,10 +625,30 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
 
   const tagKey = ops.state.tags.filter((t) => tagFilter.includes(t.id)).map((t) => t.id).join(",");
   const activeTags = useMemo(() => (tagKey ? tagKey.split(",") : []), [tagKey]);
+  const { values: settings } = useSettings();
+  const keepOrder = settings?.keepOrder === true;
+  const highlights = settings?.rowHighlights === true;
+  const place = ops.state.threadOrder ?? [];
   const model = useMemo(
-    () => buildModel(threads, projects, folders.available ? folders.data : null, harness, activeProjectId, ops.state, activeTags),
-    [threads, projects, folders.available, folders.data, harness, activeProjectId, ops.state, activeTags],
+    () => buildModel(threads, projects, folders.available ? folders.data : null, harness, activeProjectId, ops.state, activeTags, keepOrder),
+    [threads, projects, folders.available, folders.data, harness, activeProjectId, ops.state, activeTags, keepOrder],
   );
+
+  // Keep my order: give every chat a fixed place the first time the rail sees
+  // it. The first run (nothing saved yet) keeps the order on screen at that
+  // moment; after that a new chat joins the top of its list. Each chat is
+  // tried once per session, so a failed save cannot loop.
+  const triedPlace = useRef(new Set<string>());
+  useEffect(() => {
+    if (!keepOrder || !ops.loaded || status === "loading" || status === "error") return;
+    const placed = new Set(place);
+    const fresh = threads.filter((t) => !t.isArchived && !t.isHidden && !t.parentThreadId && !placed.has(t.id) && !triedPlace.current.has(t.id));
+    if (fresh.length === 0) return;
+    fresh.sort(place.length === 0 ? byUrgencyThenRecent : byNewest);
+    for (const t of fresh) triedPlace.current.add(t.id);
+    void ops.setThreadOrder([...fresh.map((t) => t.id), ...place]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keepOrder, ops.loaded, place, status, threads]);
 
   const clearSelection = useCallback(() => {
     setSelected(new Set());
@@ -601,7 +692,24 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
     [selecting, selected.size],
   );
   const machine = useMachine();
-  const rowCtx: RowCtx = { ops, machine: machine.items, hasMachine: machine.configured, selecting, selected, onSelectGesture, onNewTag: newTagFor };
+  // Keep my order: drag a chat onto another. Same list reorders; another folder
+  // (or the root) of the same project also moves it there. Pinned, Come back
+  // later and sub-agent chats reorder only among themselves.
+  const isRootList = (l: string) => l.startsWith("f:") || l.startsWith("p:");
+  const canPlace = (dragged: DragChat, target: PluginSidebarThread, list: string) =>
+    keepOrder && (dragged.list === list || (folders.available && isRootList(dragged.list) && isRootList(list) && dragged.projectId === target.projectId));
+  const onPlace = (dragged: DragChat, target: PluginSidebarThread, list: string, after: boolean) => {
+    if (dragged.list !== list) folders.placeThread(dragged.id, target.projectId, list.startsWith("f:") ? list.slice(2) : null).catch(report("Move"));
+    const order = place.filter((id) => id !== dragged.id);
+    let at = order.indexOf(target.id);
+    if (at < 0) {
+      order.unshift(target.id);
+      at = 0;
+    }
+    order.splice(after ? at + 1 : at, 0, dragged.id);
+    void ops.setThreadOrder(order);
+  };
+  const rowCtx: RowCtx = { ops, machine: machine.items, hasMachine: machine.configured, selecting, selected, onSelectGesture, onNewTag: newTagFor, canPlace, onPlace, highlights };
   const renderOrder: string[] = [];
 
   const loadDirs = useCallback(
@@ -638,11 +746,36 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
     }
   };
 
+  // Keep my order: a folder dropped on the top or bottom edge of another lands
+  // just above or below it, among that folder's siblings (leaving its old
+  // parent if needed). The order is saved in project-folders (its reorder
+  // RPC), so its own pages agree and nothing moves on disk.
+  const placeFolder = async (draggedId: string, target: Folder, after: boolean) => {
+    const data = folders.data;
+    if (!data || draggedId === target.id) return;
+    const dragged = data.folders.find((x) => x.id === draggedId);
+    if (!dragged || dragged.projectId !== target.projectId) return void toast.error("Folders can only move within the same project.");
+    const parentId = target.parentId ?? null;
+    if (parentId && model.isDescendant(parentId, draggedId)) return void toast.error("A folder cannot move inside itself.");
+    const ids = data.folders
+      .filter((x) => x.projectId === target.projectId && (x.parentId ?? null) === parentId && x.id !== draggedId)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.name.localeCompare(b.name))
+      .map((x) => x.id);
+    const at = ids.indexOf(target.id);
+    ids.splice(after ? at + 1 : at, 0, draggedId);
+    try {
+      if ((dragged.parentId ?? null) !== parentId) await folders.reparentFolder(draggedId, parentId);
+      await folders.reorderFolders(target.projectId, parentId, ids);
+    } catch (e) {
+      report("Move")(e);
+    }
+  };
+
   // Sub-agent chats hang under their parent at every depth, joined by a guide
   // from the parent's node (thread rows: node centre at 15.5 + depth * 16).
   const hasRunning = (t: PluginSidebarThread): boolean =>
     (model.children.get(t.id) ?? []).some((c) => stateOf(c) === "running" || hasRunning(c));
-  const renderThread = (t: PluginSidebarThread, depth: number, child = false): ReactNode => {
+  const renderThread = (t: PluginSidebarThread, depth: number, list: string, child = false): ReactNode => {
     renderOrder.push(t.id);
     const kids = model.children.get(t.id) ?? [];
     return (
@@ -650,6 +783,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         <ThreadRow
           ctx={rowCtx}
           thread={t}
+          list={list}
           active={t.id === activeThreadId}
           depth={depth}
           now={now}
@@ -660,7 +794,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         />
         {kids.length > 0
           ? twigs(
-              kids.map((c) => ({ key: c.id, mid: 17, el: renderThread(c, depth + 1, true) })),
+              kids.map((c) => ({ key: c.id, mid: 17, el: renderThread(c, depth + 1, `c:${t.id}`, true) })),
               { x: 15 + depth * 16, tick: 9, lift: 10, hot: hasRunning(t) },
             )
           : null}
@@ -714,6 +848,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           todos={todoCounts.get(f.id) ?? 0}
           onToggle={() => toggle(f.id)}
           onDrop={onDropInto(f.projectId, f.id)}
+          onPlace={keepOrder ? (id, after) => void placeFolder(id, f, after) : null}
           onNewChat={f.kind === "group" ? null : () => { goTo(newChatInFolderUrl(f.projectId, f.id)); onNavigate(); }}
           onNewFolder={newInside}
           menu={(
@@ -743,7 +878,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
               [
                 ...(isDrafting(f.projectId, f.id) ? [{ key: "__draft", mid: 17, el: renderDraft(f.projectId, f.id, depth + 1) }] : []),
                 ...node.subfolders.map((sf) => ({ key: sf.id, mid: 16, el: renderFolder(sf, depth + 1) })),
-                ...node.threads.map((t) => ({ key: t.id, mid: 17, el: renderThread(t, depth + 1) })),
+                ...node.threads.map((t) => ({ key: t.id, mid: 17, el: renderThread(t, depth + 1, `f:${f.id}`) })),
               ],
               // Folder rows: chevron centre at 13 + depth * 16.
               { x: 13 + depth * 16, tick: 10, lift: 8, hot: node.live },
@@ -817,7 +952,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           </div>
         ) : null}
         {g.folders.map((f) => renderFolder(f, 0))}
-        {loose.map((t) => renderThread(t, 0))}
+        {loose.map((t) => renderThread(t, 0, `p:${g.id}`))}
         <More shown={loose.length} total={g.loose.length} open={open && g.loose.length > FOLD + 2} onToggle={() => setExpanded((o) => ({ ...o, [g.id]: !open }))} />
       </Section>
     );
@@ -841,7 +976,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           onToggle={() => ops.setCollapsed("later", !collapsedSet.has("later"))}
           onReorder={reorder}
         >
-          {model.later.map((t) => renderThread(t, 0))}
+          {model.later.map((t) => renderThread(t, 0, "later"))}
         </Section>
       ),
       live: false,
@@ -862,7 +997,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           onReorder={reorder}
           actions={<IconButton icon="Check" label="Select all that need you" onClick={() => { setSelecting(true); setSelected(new Set(model.needs.map((t) => t.id))); }} />}
         >
-          {(expanded.__needs ? model.needs : model.needs.slice(0, NEEDS_FOLD)).map((t) => renderThread(t, 0))}
+          {(expanded.__needs ? model.needs : model.needs.slice(0, NEEDS_FOLD)).map((t) => renderThread(t, 0, "needs"))}
           <More shown={expanded.__needs ? model.needs.length : Math.min(NEEDS_FOLD, model.needs.length)} total={model.needs.length} open={!!expanded.__needs} onToggle={() => setExpanded((o) => ({ ...o, __needs: !o.__needs }))} />
         </Section>
       ),
@@ -883,7 +1018,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           onToggle={() => ops.setCollapsed("pinned", !collapsedSet.has("pinned"))}
           onReorder={reorder}
         >
-          {model.pinned.map((t) => renderThread(t, 0))}
+          {model.pinned.map((t) => renderThread(t, 0, "pinned"))}
         </Section>
       ),
       live: false,
@@ -1261,7 +1396,7 @@ function DirectoryItems({ list, taken, onPick }: { list: Directory[] | "loading"
   );
 }
 
-function FolderRow({ folder, depth, open, count, live, todos, onToggle, onDrop, onNewChat, onNewFolder, menu }: {
+function FolderRow({ folder, depth, open, count, live, todos, onToggle, onDrop, onPlace, onNewChat, onNewFolder, menu }: {
   folder: Folder;
   depth: number;
   open: boolean;
@@ -1269,12 +1404,23 @@ function FolderRow({ folder, depth, open, count, live, todos, onToggle, onDrop, 
   live: boolean;
   todos: number;
   onToggle: () => void;
+  /** A chat or folder dropped inside this folder. */
   onDrop: (e: DragEvent<HTMLElement>) => void;
+  /** Keep my order: a folder dropped on the top or bottom edge goes above (or below) this one. Null with the setting off. */
+  onPlace: ((draggedId: string, after: boolean) => void) | null;
   onNewChat: (() => void) | null;
   onNewFolder: () => void;
   menu: ReactNode;
 }) {
-  const [over, setOver] = useState(false);
+  const [over, setOver] = useState<"before" | "into" | "after" | null>(null);
+  // A dragged chat always goes inside. With Keep my order, a dragged folder
+  // goes above (top third), below (bottom third) or inside (middle).
+  const zone = (e: DragEvent<HTMLElement>) => {
+    if (!onPlace || !draggingFolder) return "into" as const;
+    const r = e.currentTarget.getBoundingClientRect();
+    const y = (e.clientY - r.top) / r.height;
+    return y < 1 / 3 ? ("before" as const) : y > 2 / 3 ? ("after" as const) : ("into" as const);
+  };
   const row = (
     <div
       role="button"
@@ -1284,20 +1430,44 @@ function FolderRow({ folder, depth, open, count, live, todos, onToggle, onDrop, 
       onDragStart={(e) => {
         e.dataTransfer.setData(DRAG_FOLDER, JSON.stringify({ id: folder.id, projectId: folder.projectId }));
         e.dataTransfer.effectAllowed = "move";
+        draggingFolder = { id: folder.id, projectId: folder.projectId };
       }}
-      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => { setOver(false); onDrop(e); }}
+      onDragEnd={() => {
+        draggingFolder = null;
+      }}
+      onDragOver={(e) => {
+        // Folders only reorder within their own project, and never onto themselves.
+        if (onPlace && draggingFolder && (draggingFolder.id === folder.id || draggingFolder.projectId !== folder.projectId)) return;
+        e.preventDefault();
+        setOver(zone(e));
+      }}
+      onDragLeave={() => setOver(null)}
+      onDrop={(e) => {
+        const where = over ?? zone(e);
+        setOver(null);
+        const dragged = draggingFolder;
+        draggingFolder = null;
+        if (onPlace && dragged && where !== "into") {
+          e.preventDefault();
+          e.stopPropagation();
+          onPlace(dragged.id, where === "after");
+          return;
+        }
+        onDrop(e);
+      }}
       onClick={onToggle}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
       title={folder.path}
       className={cn(
         "group relative flex h-[32px] cursor-pointer select-none items-center gap-2 rounded-md pr-1 text-[13px] font-medium text-foreground outline-none",
         "hover:bg-[var(--state-hover)] focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent",
-        over && "bg-accent ring-1 ring-[var(--attention)]",
+        over === "into" && "bg-accent ring-1 ring-[var(--attention)]",
       )}
       style={{ paddingLeft: 6 + depth * 16 }}
     >
+      {over === "before" || over === "after" ? (
+        <span aria-hidden className="pointer-events-none absolute rounded-full" style={{ left: 4, right: 4, height: 2, background: GOLD, zIndex: 1, ...(over === "before" ? { top: -1 } : { bottom: -1 }) }} />
+      ) : null}
       <Icon name="ChevronRight" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
       <Icon name={open ? "FolderOpen" : "Folder"} className="size-4 shrink-0 opacity-75" />
       <span className="min-w-0 flex-1 truncate">{folder.name}</span>
@@ -1323,9 +1493,12 @@ function buildModel(
   data: FolderData | null,
   harness: string | null,
   activeProjectId: string | null,
-  rail: { later: Record<string, { reason: string; at: number }>; assign: Record<string, string[]> },
+  rail: { later: Record<string, { reason: string; at: number }>; assign: Record<string, string[]>; threadOrder?: string[] },
   tagFilter: readonly string[],
+  keepOrder: boolean,
 ) {
+  // Keep my order: every list of chats follows the member's own order, never activity.
+  const sortChats = keepOrder ? byPlace(rail.threadOrder ?? []) : byUrgencyThenRecent;
   const live = threads.filter((t) => !t.isHidden && !t.isArchived);
   const ids = new Set(live.map((t) => t.id));
   const children = new Map<string, PluginSidebarThread[]>();
@@ -1337,7 +1510,7 @@ function buildModel(
       children.set(t.parentThreadId, list);
     } else roots.push(t);
   }
-  for (const list of children.values()) list.sort(byUrgencyThenRecent);
+  for (const list of children.values()) list.sort(sortChats);
 
   const counts = new Map<string, [Harness, number]>();
   for (const t of live) {
@@ -1353,10 +1526,14 @@ function buildModel(
   const shown = roots.filter(match);
   const isLater = (t: PluginSidebarThread) => rail.later[t.id] !== undefined;
   const running = live.filter((t) => stateOf(t) === "running" && match(t)).sort((a, b) => b.updatedAt - a.updatedAt);
-  const later = shown.filter(isLater).sort((a, b) => (rail.later[b.id]?.at ?? 0) - (rail.later[a.id]?.at ?? 0));
-  const needs = shown.filter((t) => !isLater(t) && stateOf(t) === "needs").sort((a, b) => b.updatedAt - a.updatedAt);
-  const pinned = shown.filter((t) => !isLater(t) && t.isPinned && stateOf(t) !== "needs").sort(byUrgencyThenRecent);
-  const rest = shown.filter((t) => !isLater(t) && !t.isPinned && stateOf(t) !== "needs");
+  const later = keepOrder
+    ? shown.filter(isLater).sort(sortChats)
+    : shown.filter(isLater).sort((a, b) => (rail.later[b.id]?.at ?? 0) - (rail.later[a.id]?.at ?? 0));
+  // Keep my order leaves a chat that needs you in its place instead of lifting it into Needs you.
+  const lifted = (t: PluginSidebarThread) => !keepOrder && stateOf(t) === "needs";
+  const needs = shown.filter((t) => !isLater(t) && lifted(t)).sort((a, b) => b.updatedAt - a.updatedAt);
+  const pinned = shown.filter((t) => !isLater(t) && t.isPinned && !lifted(t)).sort(sortChats);
+  const rest = shown.filter((t) => !isLater(t) && !t.isPinned && !lifted(t));
 
   // Folder index
   const folderList = (data?.folders ?? []).filter((f) => (f.kind ?? "folder") === "folder" || f.kind === "group");
@@ -1397,7 +1574,7 @@ function buildModel(
   const folderNodes = new Map<string, FolderNode>();
   const walk = (f: Folder): FolderNode => {
     const subfolders = byParent.get(`${f.projectId}:${f.id}`) ?? [];
-    const own = (threadsByFolder.get(f.id) ?? []).sort(byUrgencyThenRecent);
+    const own = (threadsByFolder.get(f.id) ?? []).sort(sortChats);
     let total = own.length;
     let isLive = own.some((t) => stateOf(t) === "running");
     for (const s of subfolders) {
@@ -1421,7 +1598,7 @@ function buildModel(
     const top = byParent.get(`${id}:`) ?? [];
     let total = 0;
     for (const f of top) total += walk(f).total;
-    const loose = (looseByProject.get(id) ?? []).sort(byUrgencyThenRecent);
+    const loose = (looseByProject.get(id) ?? []).sort(sortChats);
     total += loose.length;
     const options: Array<{ id: string | null; label: string; depth: number; group?: boolean }> = [{ id: null, label: project?.name ?? "Project root", depth: 0 }];
     const allFolderIds: string[] = [];
@@ -1437,11 +1614,17 @@ function buildModel(
     const latest = Math.max(0, ...loose.map((t) => t.updatedAt), ...top.flatMap((f) => (folderNodes.get(f.id)?.threads ?? []).map((t) => t.updatedAt)));
     return { id, project, folders: top, loose, total, latest, hasRoot: rootIds.has(id), allFolderIds };
   });
+  // Projects not dragged into a saved order: by activity, or with Keep my order
+  // by name (personal last), so opening a chat or new activity never moves them.
   groups.sort(
-    (a, b) =>
-      Number(b.id === activeProjectId) - Number(a.id === activeProjectId) ||
-      Number(a.project?.isPersonal ?? false) - Number(b.project?.isPersonal ?? false) ||
-      b.latest - a.latest,
+    keepOrder
+      ? (a, b) =>
+          Number(a.project?.isPersonal ?? false) - Number(b.project?.isPersonal ?? false) ||
+          (a.project?.name ?? "").localeCompare(b.project?.name ?? "")
+      : (a, b) =>
+          Number(b.id === activeProjectId) - Number(a.id === activeProjectId) ||
+          Number(a.project?.isPersonal ?? false) - Number(b.project?.isPersonal ?? false) ||
+          b.latest - a.latest,
   );
 
   return {

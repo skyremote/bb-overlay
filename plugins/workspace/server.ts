@@ -39,6 +39,8 @@ const laterSchema = z.object({ reason: z.enum(["revisit", "done", "mistake"]), a
 // groups). They live only here, so nothing changes on disk or in bb itself.
 // `within` maps a section id ("project:<id>" or "group:<id>") to its group id.
 // Both fields default, so state saved before groups existed loads unchanged.
+// `threadOrder` is the member's own order of chats for "Keep my order": with
+// it on, activity never moves a row, only a drag does. It defaults too.
 const groupSchema = z.object({ id: z.string(), name: z.string().min(1).max(48) });
 const sectionId = z.string().min(1).max(80).regex(/^(project|group):/);
 const stateSchema = z.object({
@@ -49,9 +51,10 @@ const stateSchema = z.object({
   collapsed: z.array(z.string()),
   groups: z.array(groupSchema).default([]),
   within: z.record(z.string(), z.string()).default({}),
+  threadOrder: z.array(z.string()).default([]),
 });
 export type RailState = z.infer<typeof stateSchema>;
-const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {} };
+const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, threadOrder: [] };
 const ids = z.array(z.string().min(1).max(64)).min(1).max(200);
 
 export const rpcContract = defineRpcContract({
@@ -86,6 +89,7 @@ export const rpcContract = defineRpcContract({
   tag_apply: { input: z.object({ threadIds: ids, tagId: z.string(), on: z.boolean() }), output: stateSchema },
   later_set: { input: z.object({ threadIds: ids, reason: z.enum(["revisit", "done", "mistake"]).nullable() }), output: stateSchema },
   order_set: { input: z.object({ order: z.array(z.string().max(80)).max(200) }), output: stateSchema },
+  thread_order_set: { input: z.object({ order: z.array(z.string().min(1).max(64)).max(2000) }), output: stateSchema },
   collapsed_set: { input: z.object({ id: z.string().max(80), collapsed: z.boolean() }), output: stateSchema },
   forget_threads: { input: z.object({ threadIds: ids }), output: stateSchema },
   group_create: {
@@ -432,6 +436,10 @@ export default async function plugin(bb: BbPluginApi) {
     order_set: ({ order }) =>
       mutate((s) => {
         s.order = order;
+      }),
+    thread_order_set: ({ order }) =>
+      mutate((s) => {
+        s.threadOrder = [...new Set(order)];
       }),
     collapsed_set: ({ id, collapsed }) =>
       mutate((s) => {

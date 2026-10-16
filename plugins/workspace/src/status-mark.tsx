@@ -59,6 +59,40 @@ export function StatusMark({ reason, size = 14 }: { reason: LaterReason; size?: 
   );
 }
 
+/** Row highlights: a chat whose agent has finished since you last opened it.
+ *  The green tick ring with its soft ping, until you open the chat. */
+export function FinishedMark({ size = 14 }: { size?: number }) {
+  ensureStyle();
+  const C = 2 * Math.PI * 9;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Finished, not opened yet" className="shrink-0 overflow-visible">
+      <circle className="nav-sm-halo" cx="12" cy="12" r="9" fill="none" stroke="var(--success)" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="9" fill="var(--success)" fillOpacity=".16" stroke="var(--success)" strokeWidth="2.4" className="nav-sm-draw" style={{ ["--len" as string]: `${C}` }} />
+      <path d="M7.5 12.25 10.5 15.25 16.75 8.75" fill="none" stroke="var(--success)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="nav-sm-draw" style={{ ["--len" as string]: "16", animationDelay: "240ms" }} />
+    </svg>
+  );
+}
+
+/** Blue for "waiting on your answer". The NavAIgate theme has no blue on
+ *  purpose, so this one is set here; a theme can override --nav-ask. It holds
+ *  3:1 against both the light paper and the dark ground. */
+export const ASK = "var(--nav-ask, #3b82f6)";
+
+/** Row highlights: a chat whose agent has asked you a question (or wants an
+ *  approval) and is waiting. A blue ring with a question mark and the same ping. */
+export function AskMark({ size = 14 }: { size?: number }) {
+  ensureStyle();
+  const C = 2 * Math.PI * 9;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Waiting for your answer" className="shrink-0 overflow-visible">
+      <circle className="nav-sm-halo" cx="12" cy="12" r="9" fill="none" stroke={ASK} strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="9" fill={ASK} fillOpacity=".16" stroke={ASK} strokeWidth="2.4" className="nav-sm-draw" style={{ ["--len" as string]: `${C}` }} />
+      <path d="M9.6 9.7a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4" fill="none" stroke={ASK} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="16.9" r="1.25" fill={ASK} />
+    </svg>
+  );
+}
+
 /* ---- Task glyphs: the same family of marks for to-do items ----
  *  todo     dashed ring (waiting)          doing  lattice (handled by caller)
  *  check    gold ring with a soft ping     done   green tick, drawn once
