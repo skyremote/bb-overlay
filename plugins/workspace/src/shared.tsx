@@ -25,7 +25,14 @@ export type State = "running" | "needs" | "unread" | "parked";
 
 const NEEDS_INDICATORS = new Set(["waiting-for-input", "unread-error", "queued-failed"]);
 
+/** The agent has asked you something (a question or an approval) and is
+ *  waiting for your answer. Its turn stays open while it waits. */
+export const asksYou = (t: PluginSidebarThread) => t.hasPendingInteraction || t.indicator === "waiting-for-input";
+
 export function stateOf(t: PluginSidebarThread): State {
+  // Checked before "working": a chat waiting on your answer still has an open
+  // turn, so it would otherwise spin as if busy and never ask for you.
+  if (asksYou(t)) return "needs";
   const a = t.activity;
   const busy =
     t.status === "active" ||
