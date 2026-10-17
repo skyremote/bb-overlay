@@ -7,7 +7,7 @@
 // Rail groups (kept only in rail state) hold whole projects and other groups;
 // project headings drag onto them. Children of chats, folders and groups hang
 // off explorer-style tree guides that turn gold while the branch is running.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import {
   experimental_Icon as Icon,
@@ -190,6 +190,143 @@ function twigs(items: Array<{ key: string; mid: number; el: ReactNode }>, guide:
   ));
 }
 
+/* ------------------------- sub-agents that fold ------------------------- */
+
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+const EASE = "cubic-bezier(.23,1,.32,1)";
+
+/**
+ * One sub-agent row growing in or folding away: height and opacity together,
+ * clipped only while it moves so the tree guides stay whole at rest.
+ */
+function Reveal({ phase, delay, onGone, children }: { phase: "in" | "out" | "still"; delay: number; onGone: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || phase === "still") return;
+    if (reducedMotion()) {
+      if (phase === "out") gone.current();
+      return;
+    }
+    const h = el.scrollHeight;
+    el.getAnimations().forEach((a) => a.cancel());
+    el.style.overflow = "hidden";
+    const frames = phase === "in"
+      ? [{ height: "0px", opacity: 0 }, { height: `${h}px`, opacity: 1 }]
+      : [{ height: `${h}px`, opacity: 1 }, { height: "0px", opacity: 0 }];
+    const anim = el.animate(frames, { duration: phase === "in" ? 150 : 130, delay: phase === "in" ? delay : 0, easing: EASE, fill: phase === "in" ? "backwards" : "forwards" });
+    // No cleanup on the next phase: "in" turning "still" must not cut the move
+    // short. A new move cancels this one first, and cancel skips onfinish.
+    anim.onfinish = () => {
+      el.style.overflow = "";
+      if (phase === "out") gone.current();
+    };
+  }, [phase, delay]);
+  return <div ref={ref}>{children}</div>;
+}
+
+/**
+ * The sub-agents under one chat, each in its Twig. `el` is null for a child
+ * that is folded away; it keeps drawing (from its last render) while it folds
+ * out, and children that appear grow in 20 ms apart.
+ */
+function Kids({ items, guide }: { items: Array<{ key: string; mid: number; el: ReactNode | null }>; guide: { x: number; tick: number; lift: number; hot: boolean } }) {
+  const cache = useRef(new Map<string, ReactNode>());
+  const before = useRef<Set<string> | null>(null);
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set());
+  const shown = new Set(items.filter((i) => i.el).map((i) => i.key));
+  for (const i of items) if (i.el) cache.current.set(i.key, i.el);
+  const prev = before.current;
+  const entering = prev ? items.filter((i) => i.el && !prev.has(i.key)).map((i) => i.key) : [];
+  useLayoutEffect(() => {
+    const was = before.current;
+    before.current = shown;
+    if (!was) return;
+    const out = [...was].filter((k) => !shown.has(k) && items.some((i) => i.key === k));
+    const back = [...leaving].filter((k) => shown.has(k));
+    if (out.length > 0 || back.length > 0) {
+      setLeaving((l) => new Set([...[...l].filter((k) => !shown.has(k)), ...out]));
+    }
+  });
+  // Shown last time and folded now: it draws on and folds out from this render on.
+  const drawn = items.filter((i) => i.el || leaving.has(i.key) || prev?.has(i.key));
+  if (drawn.length === 0) return null;
+  return (
+    <>
+      {drawn.map((i, n) => {
+        const el = i.el ?? cache.current.get(i.key) ?? null;
+        const k = entering.indexOf(i.key);
+        return (
+          <Reveal
+            key={i.key}
+            phase={i.el ? (k >= 0 ? "in" : "still") : "out"}
+            delay={Math.min(Math.max(k, 0), 12) * 20}
+            onGone={() => setLeaving((l) => {
+              if (!l.has(i.key)) return l;
+              const next = new Set(l);
+              next.delete(i.key);
+              cache.current.delete(i.key);
+              return next;
+            })}
+          >
+            <Twig x={guide.x} tick={guide.tick} mid={i.mid} lift={guide.lift} hot={guide.hot} first={n === 0} last={n === drawn.length - 1}>
+              {el}
+            </Twig>
+          </Reveal>
+        );
+      })}
+    </>
+  );
+}
+
+/** Folding state of a chat that has sub-agents. */
+type Fold = {
+  open: boolean;
+  /** Something under it is running / needs the member. */
+  running: boolean;
+  needs: boolean;
+  set: (open: boolean) => void;
+};
+
+/**
+ * The "done/total" chip of a chat with sub-agents, with its chevron. The whole
+ * chip opens or folds the sub-agents; folded, it also carries a spinner while
+ * one runs and a red dot when one needs the member.
+ */
+function SubChip({ progress, fold }: { progress: [number, number]; fold: Fold }) {
+  const [done, total] = progress;
+  const { open, running, needs } = fold;
+  const verb = open ? "Hide" : "Show";
+  const tip = `${done} of ${total} sub-agents finished${!open && needs ? ", one needs you" : ""}. Click to ${verb.toLowerCase()} them.`;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="outline"
+          role="button"
+          aria-expanded={open}
+          aria-label={`${verb} sub-agents, ${done} of ${total} finished`}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); fold.set(!open); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className={cn(
+            "h-4 shrink-0 cursor-pointer gap-[3px] rounded-[4px] py-0 pl-[2px] pr-1 text-[10px] font-medium leading-none hover:bg-[var(--state-hover)]",
+            done < total ? "border-[color-mix(in_srgb,var(--attention)_55%,transparent)] text-[var(--warning-text)]" : "border-border text-muted-foreground",
+          )}
+          style={tnum}
+        >
+          <Icon name="ChevronRight" className={cn("size-2.5 shrink-0 transition-transform duration-150 motion-reduce:transition-none", open && "rotate-90")} />
+          {done}/{total}
+          {!open && running ? <Spinner size={8} label="A sub-agent is working" /> : null}
+          {!open && needs ? <span aria-label="A sub-agent needs you" className="size-[5px] shrink-0 rounded-full bg-destructive" /> : null}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent side="right">{tip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** A small stacked-folders glyph for rail groups (theme colour, no icon-set dependency). */
 function GroupGlyph() {
   return (
@@ -243,13 +380,15 @@ function copyFoldersInstall() {
   );
 }
 
-function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, foldersMissing, onMove, ctx, progress, child = false, mixed = false }: {
+function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, foldersMissing, onMove, ctx, progress, fold, child = false, mixed = false }: {
   thread: PluginSidebarThread;
   active: boolean;
   depth: number;
   now: number;
   /** Sub-agents finished and in all, when the chat has any. */
   progress?: [number, number] | null;
+  /** Open or fold its sub-agents, when it has any. */
+  fold?: Fold;
   /** A sub-agent chat, drawn with a small mark before its title. */
   child?: boolean;
   /** In a section that mixes projects (Pinned, Needs you, Come back later): show the project dot. */
@@ -339,6 +478,16 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
       aria-selected={ctx.selecting || ctx.selected.size > 0 ? isSelected : undefined}
       draggable
       onDragStart={onDragStart}
+      onKeyDown={(e) => {
+        // Right opens a chat's sub-agents, Left folds them.
+        if (!fold || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        if ((e.key === "ArrowRight" && !fold.open) || (e.key === "ArrowLeft" && fold.open)) {
+          e.preventDefault();
+          e.stopPropagation();
+          fold.set(e.key === "ArrowRight");
+        }
+      }}
+      aria-expanded={fold ? fold.open : undefined}
       data-sidebar-thread-shortcut-target=""
       data-sidebar-thread-id={thread.id}
       aria-current={active ? "page" : undefined}
@@ -366,6 +515,7 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
           {onMachine ? <MachineMark item={onMachine} threadId={thread.id} /> : null}
           <TagSwatches tags={tags} />
           {thread.isPinned ? <Icon name="Pin" className="size-3 shrink-0 opacity-50" /> : null}
+          {progress && fold ? <SubChip progress={progress} fold={fold} /> : null}
           <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">{h.label}</span>
           <span className="relative w-6 shrink-0 text-right text-[11px] text-muted-foreground" style={tnum}>
             <span className={cn(active && "nav-fade group-hover/row:opacity-0")}>{ago(thread.updatedAt, now)}</span>
@@ -394,23 +544,7 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
             <span className="nav-l2 mt-[2px] flex h-4 min-w-0 items-center gap-1.5 text-[11.5px] font-normal leading-4 text-muted-foreground">
               {mixed ? <span aria-hidden className="size-[6px] shrink-0 rounded-full" style={{ background: ctx.colorOf(thread.projectId) }} /> : null}
               <span className="min-w-0 flex-1 truncate">{execLine(thread.providerId, ctx.exec(thread.id))}</span>
-              {progress ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "h-4 shrink-0 rounded-[4px] px-1 py-0 text-[10px] font-medium leading-none",
-                        progress[0] < progress[1] ? "border-[color-mix(in_srgb,var(--attention)_55%,transparent)] text-[var(--warning-text)]" : "border-border text-muted-foreground",
-                      )}
-                      style={tnum}
-                    >
-                      {progress[0]}/{progress[1]}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{`${progress[0]} of ${progress[1]} sub-agents finished`}</TooltipContent>
-                </Tooltip>
-              ) : null}
+              {progress && fold ? <SubChip progress={progress} fold={fold} /> : null}
               {branch ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -432,6 +566,9 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
     <Menu trigger={anchor}>
       <MenuItem icon="ArrowUpRight" label="Open" onSelect={() => { actions.open(thread.id); onNavigate(); }} />
       <MenuItem icon="Columns2" label="Open in split" onSelect={() => { actions.open(thread.id, { split: true }); onNavigate(); }} />
+      {fold && progress ? (
+        <MenuItem icon={fold.open ? "ChevronsUp" : "ChevronsDown"} label={fold.open ? "Hide sub-agents" : "Show sub-agents"} hint={`${progress[1]}`} onSelect={() => fold.set(!fold.open)} />
+      ) : null}
       <MenuSeparator />
       <MenuItem icon={thread.isPinned ? "Pin" : "Pin"} label={thread.isPinned ? "Unpin" : "Pin"} onSelect={() => actions.setPinned(thread.id, !thread.isPinned).catch(report("Pin"))} />
       <MenuItem
@@ -841,18 +978,31 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
 
   // Sub-agent chats hang under their parent at every depth, joined by a guide
   // from the parent's node (thread rows: node centre at 15.5 + depth * 16).
-  const hasRunning = (t: PluginSidebarThread): boolean =>
-    (model.children.get(t.id) ?? []).some((c) => stateOf(c) === "running" || hasRunning(c));
+  // They start folded; while folded, the ones running or needing the member (or
+  // holding the open chat) still peek out, and fold away again once they settle.
+  const subOpen = new Set(ops.state.subOpen);
+  const below = (t: PluginSidebarThread, test: (c: PluginSidebarThread) => boolean): boolean =>
+    (model.children.get(t.id) ?? []).some((c) => test(c) || below(c, test));
+  const isRunning = (c: PluginSidebarThread) => stateOf(c) === "running";
+  const isNeeds = (c: PluginSidebarThread) => stateOf(c) === "needs";
+  const hasRunning = (t: PluginSidebarThread): boolean => below(t, isRunning);
+  const peeks = (c: PluginSidebarThread): boolean =>
+    isRunning(c) || isNeeds(c) || c.id === activeThreadId || below(c, (x) => isRunning(x) || isNeeds(x) || x.id === activeThreadId);
   const renderThread = (t: PluginSidebarThread, depth: number, child = false, mixed = false): ReactNode => {
     renderOrder.push(t.id);
     const kids = model.children.get(t.id) ?? [];
     const progress: [number, number] | null = kids.length > 0 ? [kids.filter((c) => stateOf(c) !== "running").length, kids.length] : null;
+    const open = subOpen.has(t.id);
+    const fold: Fold | undefined = kids.length > 0
+      ? { open, running: hasRunning(t), needs: below(t, isNeeds), set: (o) => { if (o !== open) ops.setSubOpen([t.id], o); } }
+      : undefined;
     return (
       <div key={t.id}>
         <ThreadRow
           ctx={rowCtx}
           thread={t}
           progress={progress}
+          fold={fold}
           child={child}
           mixed={mixed}
           active={t.id === activeThreadId}
@@ -863,12 +1013,12 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           foldersMissing={!folders.available}
           onMove={(folderId) => folders.placeThread(t.id, t.projectId, folderId).catch(report("Move"))}
         />
-        {kids.length > 0
-          ? twigs(
-              kids.map((c) => ({ key: c.id, mid: rowMid, el: renderThread(c, depth + 1, true) })),
-              { x: 15 + INSET + depth * 16, tick: 9, lift: kidLift, hot: hasRunning(t) },
-            )
-          : null}
+        {kids.length > 0 ? (
+          <Kids
+            items={kids.map((c) => ({ key: c.id, mid: rowMid, el: open || peeks(c) ? renderThread(c, depth + 1, true) : null }))}
+            guide={{ x: 15 + INSET + depth * 16, tick: 9, lift: kidLift, hot: fold?.running ?? false }}
+          />
+        ) : null}
       </div>
     );
   };
@@ -1426,6 +1576,9 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
       <MenuItem lead={<GroupGlyph />} label="New group" hint="holds projects" onSelect={() => setDraft({ kind: "group-new", parentId: null, members: [] })} />
       <MenuSeparator />
       <MenuItem label="Compact rows" hint={compact ? undefined : "one line each"} checked={compact} onSelect={() => setCompact(!compact)} />
+      <MenuSeparator />
+      <MenuItem icon="ChevronsDown" label="Expand all" hint="sub-agents" onSelect={() => ops.setSubOpen([...model.children.keys()], true)} />
+      <MenuItem icon="ChevronsUp" label="Collapse all" hint="sub-agents" onSelect={() => ops.setSubOpen([...ops.state.subOpen], false)} />
       {navMode === "hidden" ? (
         <>
           <MenuSeparator />

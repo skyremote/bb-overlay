@@ -126,6 +126,12 @@ It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
 
+## What's new in 1.6.0
+
+- A chat's sub-agents now fold away under it. A chat with sub-agents starts folded, with a small chevron on its "done/total" chip; click the chip to show or hide them, press Right or Left on the focused row, or right-click the chat for **Show sub-agents** / **Hide sub-agents**. Clicking the title still opens the chat.
+- Folded, the chip shows a spinner while a sub-agent works and a red dot when one needs you, and those sub-agents peek out on their own, then fold away again once they finish (unless you opened the chat). Sub-agents of sub-agents follow the same rule.
+- Open or folded is remembered per chat and follows you across windows. Right-click the rail for **Expand all** and **Collapse all**. Rows grow in and fold away smoothly, and stay still if your system asks for reduced motion.
+
 ## What's new in 1.5.0
 
 - Hover the usage line under the chat box for a moment, or focus it and press Enter, and a usage card opens on the account that chat runs on. Small tabs switch to any other Claude, ChatGPT or Cursor account.

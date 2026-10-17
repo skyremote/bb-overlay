@@ -26,7 +26,7 @@ export const TAG_CSS: Record<TagColor, string> = {
   sand: "var(--input)",
 };
 
-const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, colors: {} };
+const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, colors: {}, subOpen: [] };
 
 const fail = (verb: string) => (e: unknown) => {
   toast.error(`${verb} failed`, { description: e instanceof Error ? e.message : String(e) });
@@ -59,6 +59,16 @@ export function useRailState() {
     setCollapsed: (id: string, collapsed: boolean) => {
       setState((s) => ({ ...s, collapsed: collapsed ? [...new Set([...s.collapsed, id])] : s.collapsed.filter((x) => x !== id) }));
       void apply(rpc.call("collapsed_set", { id, collapsed }), "Collapse");
+    },
+    /** Open or fold the sub-agents under these chats (one write, synced to every window). */
+    setSubOpen: (threadIds: string[], open: boolean) => {
+      if (threadIds.length === 0) return;
+      const ids = threadIds.slice(0, 400);
+      setState((s) => {
+        const rest = s.subOpen.filter((x) => !ids.includes(x));
+        return { ...s, subOpen: open ? [...rest, ...ids] : rest };
+      });
+      void apply(rpc.call("sub_open_set", { threadIds: ids, open }), "Sub-agents");
     },
     createGroup: (name: string, parentId: string | null, members?: string[]) =>
       rpc.call("group_create", { name, parentId, members }).then(

@@ -53,9 +53,15 @@ const stateSchema = z.object({
   // Project colours for the rail (projectId -> palette name). Plain strings so a
   // name the rail no longer knows never fails the parse; the rail falls back.
   colors: z.record(z.string(), z.string().max(16)).default({}),
+  // Chats whose sub-agents the member has opened in the rail. Absent means folded
+  // (running and needs-you sub-agents still peek out). Defaults, so older
+  // state loads unchanged.
+  subOpen: z.array(z.string()).default([]),
 });
 export type RailState = z.infer<typeof stateSchema>;
-const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, colors: {} };
+const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, colors: {}, subOpen: [] };
+/** Open parents kept at most; the oldest drop off first. */
+const SUB_OPEN_MAX = 400;
 const PROJECT_COLORS = ["gold", "orange", "green", "teal", "plum", "rose", "slate"] as const;
 const execSchema = z.object({ model: z.string(), reasoningLevel: z.string() });
 const ids = z.array(z.string().min(1).max(64)).min(1).max(200);
@@ -93,6 +99,8 @@ export const rpcContract = defineRpcContract({
   later_set: { input: z.object({ threadIds: ids, reason: z.enum(["revisit", "done", "mistake"]).nullable() }), output: stateSchema },
   order_set: { input: z.object({ order: z.array(z.string().max(80)).max(200) }), output: stateSchema },
   collapsed_set: { input: z.object({ id: z.string().max(80), collapsed: z.boolean() }), output: stateSchema },
+  // Open or fold the sub-agents under one or more chats (Expand all / Collapse all send many).
+  sub_open_set: { input: z.object({ threadIds: z.array(z.string().min(1).max(64)).min(1).max(SUB_OPEN_MAX), open: z.boolean() }), output: stateSchema },
   forget_threads: { input: z.object({ threadIds: ids }), output: stateSchema },
   project_color_set: { input: z.object({ projectId: z.string().min(1).max(80), color: z.enum(PROJECT_COLORS).nullable() }), output: stateSchema },
   // Model and effort per chat for the two-line rail rows, asked in batches.
@@ -495,6 +503,12 @@ export default async function plugin(bb: BbPluginApi) {
         else set.delete(id);
         s.collapsed = [...set];
       }),
+    sub_open_set: ({ threadIds, open }) =>
+      mutate((s) => {
+        const drop = new Set(threadIds);
+        const rest = s.subOpen.filter((x) => !drop.has(x));
+        s.subOpen = open ? [...rest, ...threadIds].slice(-SUB_OPEN_MAX) : rest;
+      }),
     project_color_set: ({ projectId, color }) =>
       mutate((s) => {
         if (color) s.colors[projectId] = color;
@@ -526,6 +540,8 @@ export default async function plugin(bb: BbPluginApi) {
           delete s.assign[id];
           delete s.later[id];
         }
+        const gone = new Set(threadIds);
+        s.subOpen = s.subOpen.filter((x) => !gone.has(x));
       }),
     group_create: async ({ name, parentId, members }) => {
       const group = { id: `g_${randomUUID().slice(0, 8)}`, name };
