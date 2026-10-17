@@ -37,6 +37,7 @@
     "server-audience.ts",
     "server-calendar.ts",
     "server-money.ts",
-    "server-browser.ts"
+    "server-browser.ts",
+    "server-usage-trend.ts"
   ]
 }

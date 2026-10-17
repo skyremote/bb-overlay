@@ -259,6 +259,11 @@ bb plugin install tasks</pre>
       <div class="caps">Usage</div>
       <h2>Know where you <em class="f">stand</em> before you hit a limit</h2>
       <p>Under the chat box there's a line that shows how much of the context the chat has used, with a small dial and a tick where auto-compaction starts, and next to it the plan and the session and weekly windows of the account that chat is running on. If you run more than one subscription through bb's Account Pooler, it shows the one that chat is actually using.</p>
+      <p>Rest the pointer on that line for a moment, or Tab to it and press <kbd>Enter</kbd>, and a usage card opens. It charts this session and this week since each window opened, draws a dotted forecast to the reset and warns you before you cross 90%, and gives your burn rate, the time to the limit and the chats that used the most. Small tabs switch between every Claude, ChatGPT and Cursor account you have.</p>
+      <ul class="points">
+        <li>The plugin records each account every 3 minutes from readings bb already has, so it never asks the providers for more. Cursor is checked every 15 minutes.</li>
+        <li>Forecasts are straight lines, and the busiest chats are an estimate from each finished turn's tokens; the card says so.</li>
+      </ul>
     </div>
   </section>
 

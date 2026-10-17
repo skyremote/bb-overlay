@@ -29,6 +29,7 @@ import { poolList, poolListSchema, poolPutFirst } from "./server-pool";
 import { createMachines, hostMachineSchema } from "./server-machines";
 import { createHolds, holdStateSchema } from "./server-hold";
 import { createTeleport, teleportLinkSchema, teleportMoveInput, teleportMoveOutput } from "./server-teleport";
+import { createUsageTrend, trendSchema } from "./server-usage-trend";
 
 // ---- Rail state: tags, "come back later" marks, section order (synced via bb) ----
 
@@ -160,6 +161,8 @@ export const rpcContract = defineRpcContract({
     input: z.object({ provider: z.enum(["claude", "codex"]), sessionId: z.string().max(200).nullable() }),
     output: z.object({ accountId: z.string().nullable(), activeAccountId: z.string().nullable() }),
   },
+  // Hover card under the chat box: every account's windows over time, forecasts, busiest chats.
+  usage_trend: { input: z.null(), output: trendSchema },
   // Claude accounts for the account chip: list, and put one first in the failover order.
   pool_list: { input: z.null(), output: poolListSchema },
   pool_put_first: { input: z.object({ accountId: z.string().uuid() }), output: poolListSchema },
@@ -222,6 +225,27 @@ export default async function plugin(bb: BbPluginApi) {
     s.within[member] = groupId;
   };
 
+  const poolAccount = (provider: "claude" | "codex", sessionId: string | null): { accountId: string | null; activeAccountId: string | null } => {
+    const conn = open();
+    if (!conn) return { accountId: null, activeAccountId: null };
+    try {
+      const active = conn.prepare("SELECT account_id FROM pool_active_account WHERE provider = ?").get(provider) as
+        | { account_id: string }
+        | undefined;
+      let pinned: { account_id: string } | undefined;
+      if (sessionId) {
+        // affinity_key is JSON: ["claude","host_…","session:<id>"]
+        pinned = conn
+          .prepare("SELECT account_id FROM pool_affinity WHERE affinity_key LIKE ? AND affinity_key LIKE ? ORDER BY last_used_at DESC LIMIT 1")
+          .get(`["${provider}",%`, `%"session:${sessionId.replace(/[%_"\\]/g, "")}"]`) as { account_id: string } | undefined;
+      }
+      return { accountId: pinned?.account_id ?? null, activeAccountId: active?.account_id ?? null };
+    } catch (e) {
+      bb.log.warn(`pool lookup failed: ${String(e)}`);
+      return { accountId: null, activeAccountId: null };
+    }
+  };
+
   const todo = createTodoEngine(bb);
   const voice = createVoice(bb);
   const home = createHome(bb, voice.settings as unknown as { get(): Promise<Record<string, unknown>> });
@@ -267,6 +291,29 @@ export default async function plugin(bb: BbPluginApi) {
         if (signal.aborted) break;
         await new Promise((r) => {
           const t = setTimeout(r, 30 * 60_000);
+          signal.addEventListener("abort", () => { clearTimeout(t); r(null); }, { once: true });
+        });
+      }
+    },
+  });
+
+  // Usage trend for the hover card: every account's windows every 3 minutes
+  // (cached reads only; Cursor at most every 15 minutes) and the chats behind them.
+  const trend = createUsageTrend(bb, {
+    cursorUsage: () => home.cursorUsage(),
+    planLabel: (harness, raw, email) => home.planLabel(harness, raw, email),
+    accountFor: (provider, sessionId) => {
+      const r = poolAccount(provider, sessionId);
+      return r.accountId ?? r.activeAccountId;
+    },
+  });
+  bb.background.service("usage-trend", {
+    async start(signal) {
+      while (!signal.aborted) {
+        await orAbort(trend.sample(), signal);
+        if (signal.aborted) break;
+        await new Promise((r) => {
+          const t = setTimeout(r, 3 * 60_000);
           signal.addEventListener("abort", () => { clearTimeout(t); r(null); }, { once: true });
         });
       }
@@ -526,26 +573,8 @@ export default async function plugin(bb: BbPluginApi) {
       bb.realtime.publish("pool-order", { at: Date.now() });
       return res;
     },
-    pool_account: ({ provider, sessionId }) => {
-      const conn = open();
-      if (!conn) return { accountId: null, activeAccountId: null };
-      try {
-        const active = conn.prepare("SELECT account_id FROM pool_active_account WHERE provider = ?").get(provider) as
-          | { account_id: string }
-          | undefined;
-        let pinned: { account_id: string } | undefined;
-        if (sessionId) {
-          // affinity_key is JSON: ["claude","host_…","session:<id>"]
-          pinned = conn
-            .prepare("SELECT account_id FROM pool_affinity WHERE affinity_key LIKE ? AND affinity_key LIKE ? ORDER BY last_used_at DESC LIMIT 1")
-            .get(`["${provider}",%`, `%"session:${sessionId.replace(/[%_"\\]/g, "")}"]`) as { account_id: string } | undefined;
-        }
-        return { accountId: pinned?.account_id ?? null, activeAccountId: active?.account_id ?? null };
-      } catch (e) {
-        bb.log.warn(`pool lookup failed: ${String(e)}`);
-        return { accountId: null, activeAccountId: null };
-      }
-    },
+    pool_account: ({ provider, sessionId }) => poolAccount(provider, sessionId),
+    usage_trend: () => trend.card(),
   });
 }
 

@@ -7,11 +7,15 @@
 // hooks) and writes plain, escaped markup into a slot element it inserts right
 // after the composer footer. The slot carries the plugin scope attributes so
 // the plugin's compiled classes apply. Polling pauses while the window is hidden.
+// Hovering the line (or focusing it and pressing Enter) opens the usage card
+// (usage-card.tsx) on the account this chat runs on.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { experimental_useSidebarThreads as useSidebarThreads, useBbContext, useRpc, useSdk } from "@get-bb/plugin-sdk/app";
 import { z } from "zod";
 import type { rpcContract } from "../server";
 import { harnessOf } from "./shared";
+import { UsageHover } from "./usage-card";
 
 const POOL_PROVIDER: Record<string, "claude" | "codex"> = { "claude-code": "claude", codex: "codex" };
 
@@ -271,12 +275,14 @@ export function UsageDock() {
   );
   const [wins, setWins] = useState<Win[] | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [acct, setAcct] = useState<string | null>(null);
   const sessionId = ctx?.sessionId ?? null;
 
   useEffect(() => {
     setCtx(null);
     setWins(null);
     setPlan(null);
+    setAcct(null);
   }, [threadId]);
 
   usePoll(
@@ -341,6 +347,7 @@ export function UsageDock() {
             if (r.usage.status === "ok" && r.usage.windows) {
               setWins(r.usage.windows.map((w) => ({ label: shortLabel({ label: w.label, kind: w.kind, model: w.model ?? undefined }), pct: w.usedPercent, resetsAt: w.resetsAt })));
               setPlan({ label: r.usage.planLabel ?? null, email: r.usage.accountEmail ?? null, source: accountId ? "pinned" : "pool" });
+              setAcct(id);
               return;
             }
           }
@@ -349,6 +356,7 @@ export function UsageDock() {
         }
       }
       // 2. Fallback: the provider's own local login.
+      setAcct(providerId.includes("cursor") ? "cursor" : null);
       const all = (await sdk.system.usageLimits({ providerId })) as Record<
         string,
         { status: string; planLabel?: string | null; accountEmail?: string | null; windows?: Array<{ label: string; usedPercent: number; resetsAt: string | null; kind?: string; model?: string }> }
@@ -366,10 +374,13 @@ export function UsageDock() {
     [providerId, slot, sdk, rpc, sessionId],
   );
 
-  useEffect(() => {
-    if (!slot) return;
-    slot.innerHTML = threadId ? render(ctx, providerId ? harnessOf(providerId).label : "", wins, plan, slot.clientWidth || 800) : "";
-  }, [slot, ctx, wins, plan, threadId, providerId]);
-
-  return null;
+  if (!slot || !threadId) return null;
+  // The card replaces the line's native tooltips, which would otherwise pop up over it.
+  const html = render(ctx, providerId ? harnessOf(providerId).label : "", wins, plan, slot.clientWidth || 800).replace(/ title="/g, ' data-tip="');
+  return createPortal(
+    <UsageHover thisAccount={acct}>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    </UsageHover>,
+    slot,
+  );
 }

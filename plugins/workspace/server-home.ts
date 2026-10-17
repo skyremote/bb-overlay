@@ -67,6 +67,18 @@ export function createHome(bb: BbPluginApi, settings: Settings) {
     return m;
   }
 
+  /** "Max 20x", "ChatGPT Pro"…, unless the planTiers setting corrects it. */
+  function planOf(t: Map<string, string>, harness: "claude" | "codex", raw: string | null, email: string | null): string | null {
+    // A correction only applies to the matching harness: Claude plans to Claude, ChatGPT plans to Codex.
+    const o = t.get(String(email).toLowerCase());
+    const override = o && (harness === "codex" ? /chatgpt/i.test(o) : !/chatgpt/i.test(o)) ? o : undefined;
+    return (
+      override ??
+      (harness === "claude" ? (raw && /20x/i.test(raw) ? "Max 20x" : raw && /5x/i.test(raw) ? "Max 5x" : raw ? `Claude ${raw}` : null) : raw ? `ChatGPT ${raw}` : null)
+    );
+  }
+  const planLabel = async (harness: "claude" | "codex", raw: string | null, email: string | null) => planOf(await tiers(), harness, raw, email);
+
   // ---------- Cursor: plan and billing-cycle use from its own usage API ----------
   let cursorCache: { at: number; value: Omit<HomeAccount, "history" | "advice"> | null } = { at: 0, value: null };
   async function cursorUsage(): Promise<Omit<HomeAccount, "history" | "advice"> | null> {
@@ -131,13 +143,7 @@ export function createHome(bb: BbPluginApi, settings: Settings) {
         const sess = ws.find((w) => w.kind === "five-hour" || /five|5h|session/i.test(w.label));
         const week = ws.find((w) => w.kind === "weekly" && !w.model) ?? ws.find((w) => w.kind === "weekly");
         const email = r.usage.accountEmail ?? res.label;
-        const raw = r.usage.planLabel ?? null;
-        // A correction only applies to the matching harness: Claude plans to Claude, ChatGPT plans to Codex.
-        const o = t.get(String(email).toLowerCase());
-        const override = o && (harness === "codex" ? /chatgpt/i.test(o) : !/chatgpt/i.test(o)) ? o : undefined;
-        const plan =
-          override ??
-          (harness === "claude" ? (raw && /20x/i.test(raw) ? "Max 20x" : raw && /5x/i.test(raw) ? "Max 5x" : raw ? `Claude ${raw}` : null) : raw ? `ChatGPT ${raw}` : null);
+        const plan = planOf(t, harness, r.usage.planLabel ?? null, email);
         out.push({
           id: res.id,
           harness,
@@ -308,5 +314,5 @@ export function createHome(bb: BbPluginApi, settings: Settings) {
     }
   }
 
-  return { accounts, agenda, events, briefLatest, composioKey };
+  return { accounts, agenda, events, briefLatest, composioKey, cursorUsage, planLabel };
 }

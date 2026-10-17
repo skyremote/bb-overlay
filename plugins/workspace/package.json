@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-navaigate-workspace",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "module",
   "engines": {
     "bb": ">=0.44",
@@ -41,6 +41,7 @@
   "dependencies": {
     "@elevenlabs/client": "^1.26.0",
     "@radix-ui/react-slot": "^1.3.0",
+    "@radix-ui/react-tabs": "^1.2.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -109,6 +110,7 @@
     "server-machines.ts",
     "server-teleport.ts",
     "server-hold.ts",
+    "server-usage-trend.ts",
     "LICENSE",
     "NOTICE"
   ],

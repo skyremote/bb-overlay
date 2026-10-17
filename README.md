@@ -25,6 +25,7 @@ Two bb plugins:
   - **The rail:** a run-sheet sidebar with two-line chat rows (model, effort, sub-agents and branch), a colour per project, a NOW card, a harness filter, a Tags dropdown, folders (and folders inside folders), groups that hold whole projects, guide lines that show what sits inside what, "Come back later", and right-click on everything. bb's navigation sits under a Navigate row that folds to one line (⌘⇧B) or hides.
   - **Tabs:** a strip of the chats you have open, with a hover preview and drag to reorder.
   - **Chips under the chat box:** hold a message until the chat's sub-agents finish, start or move a chat on your always-on machine, and see which Claude account a chat runs on.
+  - **Usage card:** hover the usage line under the chat box (or focus it and press Enter) for charts of the session and the week since each window opened, a forecast to the reset with a warning before you cross 90%, your burn rate, time to the limit and the chats that used the most. Tabs switch between every Claude, ChatGPT and Cursor account.
   - **To-do and Board:** to-dos linked to chats, which move on their own as the chats start and finish.
   - **Agents panel:** start any agent from `~/.claude/agents` in one click and watch the whole family of chats.
   - **Talk:** the Savvy voice agent on ElevenLabs. Speak to whichever harness chat you have open.
@@ -124,6 +125,13 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.5.0
+
+- Hover the usage line under the chat box for a moment, or focus it and press Enter, and a usage card opens on the account that chat runs on. Small tabs switch to any other Claude, ChatGPT or Cursor account.
+- It shows the session with the time to its reset and a forecast ("On track: about 64% used when the session resets", or "Hits 90% at 20:00, 11 min before it resets"), the weekly windows (including model-specific ones such as Fable), and charts of this session and this week (this month for Cursor) with 75% and 90% marks and a dotted line to the reset. Point at the chart for the time and % of any reading.
+- Burn rate over the last 30 minutes, time to the limit and which window resets first, and the three busiest chats by share of tokens. That last part is an estimate, and the card says so: providers do not report usage per chat, so each finished turn's tokens are counted against the account the chat's session uses.
+- A background service records each account every 3 minutes from cached readings only, so it never asks the providers for more than bb already does (Cursor every 15 minutes), and keeps two weeks. Forecasts start after a few readings.
 
 ## What's new in 1.4.0
 
