@@ -22,7 +22,7 @@ Two bb plugins:
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
   - **Inbox:** every email from your Gmail accounts, read-only. "Sort with Jev" puts each one in a pile (Reply today, Clients, Partners, Billing, Community, Newsletters and more). "Hand to agent" starts a chat that drafts the reply but never sends it.
   - **Calendar:** your Google Calendars as a month view, with your booking links.
-  - **The rail:** a run-sheet sidebar with a NOW card, a harness filter, a Tags dropdown, folders (and folders inside folders), groups that hold whole projects, guide lines that show what sits inside what, "Come back later", and right-click on everything. bb's navigation sits under a Navigate row that folds to one line (⌘⇧B) or hides.
+  - **The rail:** a run-sheet sidebar with two-line chat rows (model, effort, sub-agents and branch), a colour per project, a NOW card, a harness filter, a Tags dropdown, folders (and folders inside folders), groups that hold whole projects, guide lines that show what sits inside what, "Come back later", and right-click on everything. bb's navigation sits under a Navigate row that folds to one line (⌘⇧B) or hides.
   - **Tabs:** a strip of the chats you have open, with a hover preview and drag to reorder.
   - **Chips under the chat box:** hold a message until the chat's sub-agents finish, start or move a chat on your always-on machine, and see which Claude account a chat runs on.
   - **To-do and Board:** to-dos linked to chats, which move on their own as the chats start and finish.
@@ -124,6 +124,15 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.4.0
+
+- Each chat in the rail now has two lines: its title, then the model and effort it runs on ("Opus · High", or "Codex · GPT-6.1 Sol · High" for other harnesses), how many of its sub-agents have finished ("2/7") and its git branch as a small chip (hidden outside a git repo).
+- The mark on the left says what a chat needs: a green tick when it finished and you have not read it, a gold question mark when it waits for an answer, a red mark on an error, a pause mark while a message is queued, and your come-back-later flag. A gold spinner on the right shows it is working.
+- Each project has its own colour, a dot on its heading and a bar down its chats. Right-click the heading and choose **Colour** to change it. A **New chat** row sits at the top of the list.
+- Prefer the old look? Right-click the rail or a project heading and choose **Compact rows** for one line per chat with the harness and time.
+- The harness filter shows each harness as its logo and count, with the name in a tooltip, so nothing is cut short in a narrow sidebar.
+- Works on bb 0.46.1: the Navigate row no longer needs a hook bb removed.
 
 ## What's new in 1.3.0
 

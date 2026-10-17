@@ -96,6 +96,24 @@ const store = {
   },
 };
 
+/**
+ * Close a chat the way the strip's x does, for the rail's close button: drop
+ * its tab and, when it is the chat on screen, open the neighbouring tab (or a
+ * new chat in the project when no tab is left).
+ */
+export function closeChatTab(
+  id: string,
+  current: { threadId: string | null; projectId: string | null },
+  actions: { open: (id: string) => void; openNewThread: (o: { projectId?: string; focusPrompt?: boolean }) => void },
+) {
+  const at = ids.indexOf(id);
+  store.remove(id);
+  if (id !== current.threadId) return;
+  const next = ids[at] ?? ids[at - 1];
+  if (next) actions.open(next);
+  else actions.openNewThread({ projectId: current.projectId ?? undefined, focusPrompt: true });
+}
+
 // ---- the slot element -------------------------------------------------------
 
 function useStripSlot(): HTMLElement | null {

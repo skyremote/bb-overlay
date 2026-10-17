@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { RailState, rpcContract } from "../server";
+import type { ProjectColor } from "./rail-look";
 
 export type { RailState };
 export type Tag = RailState["tags"][number];
@@ -25,7 +26,7 @@ export const TAG_CSS: Record<TagColor, string> = {
   sand: "var(--input)",
 };
 
-const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {} };
+const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, colors: {} };
 
 const fail = (verb: string) => (e: unknown) => {
   toast.error(`${verb} failed`, { description: e instanceof Error ? e.message : String(e) });
@@ -86,6 +87,16 @@ export function useRailState() {
         fail("Move to group")(e);
         refetch();
       });
+    },
+    /** Pick a project's colour in the rail; null goes back to the automatic one. */
+    setProjectColor: (projectId: string, color: ProjectColor | null) => {
+      setState((s) => {
+        const colors = { ...s.colors };
+        if (color) colors[projectId] = color;
+        else delete colors[projectId];
+        return { ...s, colors };
+      });
+      void apply(rpc.call("project_color_set", { projectId, color }), "Project colour");
     },
     forget: (threadIds: string[]) => apply(rpc.call("forget_threads", { threadIds }), "Tidy up"),
   };

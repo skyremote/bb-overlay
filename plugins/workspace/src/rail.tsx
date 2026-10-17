@@ -13,6 +13,8 @@ import {
   experimental_Icon as Icon,
   experimental_useSidebarThreadActions as useThreadActions,
   experimental_useSidebarThreads as useSidebarThreads,
+  experimental_ProviderIcon as ProviderIcon,
+  experimental_useProviders as useProviders,
   type PluginSidebarProject,
   type PluginSidebarThread,
   type PluginThreadListProps,
@@ -32,6 +34,25 @@ import { NAV_SHORTCUT, setNavMode, useNavMode } from "./nav-fold";
 import { BulkBar } from "./bulk-bar";
 import { TodoBadge, useFolderTodoCounts } from "./todo";
 import { CloudGlyph, MachineMark, useMachine, useMachineActions, type MachineItem } from "./machine";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { closeChatTab } from "./tabs";
+import {
+  GLYPH_LABEL,
+  PROJECT_COLORS,
+  PROJECT_COLOR_LABEL,
+  SubAgentGlyph,
+  Spinner,
+  StateGlyph,
+  ensureRailLook,
+  execLine,
+  glyphOf,
+  projectColorOf,
+  projectCss,
+  useJustOpened,
+  useThreadExec,
+  type Exec,
+} from "./rail-look";
 
 /** Lowercase Roman numerals for the top-level sections: 1 -> "i", 14 -> "xiv". */
 function roman(n: number): string {
@@ -43,6 +64,8 @@ function roman(n: number): string {
 const FOLD = 8;
 const NEEDS_FOLD = 4;
 const DRAG_THREAD = "application/x-nav-thread";
+/** Rows sit 6px further in than before, clear of the project colour bar. */
+const INSET = 6;
 const DRAG_FOLDER = "application/x-nav-folder";
 
 /* ----------------------------- persistence ----------------------------- */
@@ -101,7 +124,7 @@ function InlineInput({ initial, placeholder, depth, onSubmit, onCancel }: {
     } else if (e.key === "Escape") onCancel();
   };
   return (
-    <div className="flex h-[34px] items-center pr-2" style={{ paddingLeft: 10 + depth * 16 }}>
+    <div className="flex h-[34px] items-center pr-2" style={{ paddingLeft: 10 + INSET + depth * 16 }}>
       <input
         ref={ref}
         defaultValue={initial}
@@ -202,6 +225,14 @@ type RowCtx = {
   /** Handles ⌘/⇧-click and Select mode; returns true when the click was a selection. */
   onSelectGesture: (id: string, e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }) => boolean;
   onNewTag: (threadIds: string[]) => void;
+  /** One-line rows (harness and time), as before 0.28. */
+  compact: boolean;
+  /** Model and effort per chat, from the batched cache (undefined until known). */
+  exec: (id: string) => Exec | null | undefined;
+  /** CSS colour of a project's dot and bar. */
+  colorOf: (projectId: string) => string;
+  /** Close a chat the way the tab strip's x does. */
+  close: (id: string) => void;
 };
 
 /** Copy the project-folders install line, for the greyed-out folder actions. */
@@ -212,11 +243,17 @@ function copyFoldersInstall() {
   );
 }
 
-function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, foldersMissing, onMove, ctx }: {
+function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, foldersMissing, onMove, ctx, progress, child = false, mixed = false }: {
   thread: PluginSidebarThread;
   active: boolean;
   depth: number;
   now: number;
+  /** Sub-agents finished and in all, when the chat has any. */
+  progress?: [number, number] | null;
+  /** A sub-agent chat, drawn with a small mark before its title. */
+  child?: boolean;
+  /** In a section that mixes projects (Pinned, Needs you, Come back later): show the project dot. */
+  mixed?: boolean;
   onNavigate: () => void;
   moveTargets: FolderOption[] | null;
   foldersMissing: boolean;
@@ -233,6 +270,9 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
   const tagIds = ctx.ops.state.assign[thread.id] ?? [];
   const tags = ctx.ops.state.tags.filter((t) => tagIds.includes(t.id));
   const isSelected = ctx.selected.has(thread.id);
+  // Status glyphs animate only when they change, not when the row first draws.
+  const born = useRef(Date.now());
+  const settle = Date.now() - born.current > 600;
   // Menu actions apply to the whole selection when this row is part of it.
   const targets = isSelected && ctx.selected.size > 1 ? [...ctx.selected] : [thread.id];
 
@@ -256,6 +296,36 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
     e.dataTransfer.effectAllowed = "move";
   };
 
+  const running = state === "running";
+  const glyph = glyphOf(thread);
+  const gutter = ctx.selecting ? (
+    <span aria-hidden className={cn("inline-flex size-[13px] shrink-0 items-center justify-center rounded-[3px] border", isSelected ? "border-foreground bg-foreground text-background" : "border-input bg-background")}>
+      {isSelected ? <Icon name="Check" className="size-2.5" /> : null}
+    </span>
+  ) : later && !running ? (
+    <span key={`later-${later}`} className={cn("inline-flex w-[11px] shrink-0 items-center justify-center", settle && "nav-glyph-in")}><StatusMark reason={later} size={13} /></span>
+  ) : ctx.compact ? (
+    <Node state={state} />
+  ) : (
+    <span key={glyph} className={cn("inline-flex w-[11px] shrink-0 items-center justify-center", settle && glyph !== "none" && (glyph === "done" ? "nav-pop" : "nav-glyph-in"))}>
+      <StateGlyph kind={glyph} />
+    </span>
+  );
+  const branch = thread.environment?.branchName ?? null;
+  const label = `${thread.displayTitle}, ${ctx.compact ? h.label : execLine(thread.providerId, ctx.exec(thread.id))}${glyph !== "none" ? `, ${GLYPH_LABEL[glyph]}` : thread.indicatorLabel ? `, ${thread.indicatorLabel}` : ""}`;
+  const closeButton = active ? (
+    <span
+      role="button"
+      tabIndex={-1}
+      aria-label="Close this chat"
+      title="Close this chat"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); ctx.close(thread.id); }}
+      className="nav-fade absolute inset-y-0 right-0 inline-flex w-5 items-center justify-center rounded text-muted-foreground opacity-0 hover:text-foreground group-hover/row:opacity-100"
+    >
+      <Icon name="X" className="size-3" />
+    </span>
+  ) : null;
+
   const anchor = (
     <a
       href={thread.href}
@@ -272,34 +342,89 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
       data-sidebar-thread-shortcut-target=""
       data-sidebar-thread-id={thread.id}
       aria-current={active ? "page" : undefined}
-      aria-label={`${thread.displayTitle}, ${h.label}${thread.indicatorLabel ? `, ${thread.indicatorLabel}` : ""}`}
+      aria-label={label}
       title={thread.displayTitle}
       className={cn(
-        "group relative flex h-[34px] items-center gap-2.5 rounded-md pr-2 text-[13.5px] no-underline outline-none transition-colors",
-        "hover:bg-[var(--state-hover)] focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent",
-        active ? "bg-accent font-semibold text-foreground" : state === "parked" && !later ? "text-muted-foreground" : "text-foreground",
-        isSelected && "bg-[var(--surface-selected)] ring-1 ring-inset ring-[var(--surface-selected-border)]",
+        "group/row relative isolate flex rounded-md pr-2 text-[13.5px] no-underline outline-none",
+        "focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent",
+        ctx.compact ? "h-[34px] items-center gap-2.5" : "h-[46px] items-start gap-2.5 pt-[6px]",
+        ctx.compact
+          ? active ? "font-semibold text-foreground" : state === "parked" && !later ? "text-muted-foreground" : "text-foreground"
+          : active ? "font-medium text-foreground" : "text-foreground",
+        isSelected && "ring-1 ring-inset ring-[var(--surface-selected-border)]",
       )}
-      style={{ paddingLeft: 10 + depth * 16 }}
+      style={{ paddingLeft: 10 + INSET + depth * 16 }}
     >
-      {active ? <span aria-hidden className="absolute inset-y-2 left-0 w-[2px]" style={{ background: GOLD }} /> : null}
-      {ctx.selecting ? (
-        <span aria-hidden className={cn("inline-flex size-[13px] shrink-0 items-center justify-center rounded-[3px] border", isSelected ? "border-foreground bg-foreground text-background" : "border-input bg-background")}>
-          {isSelected ? <Icon name="Check" className="size-2.5" /> : null}
-        </span>
-      ) : later && state !== "running" ? (
-        <span className="inline-flex w-[11px] shrink-0 items-center justify-center"><StatusMark reason={later} size={13} /></span>
+      {/* Hover and selected fills fade in on opacity alone. */}
+      <span aria-hidden className="nav-fade pointer-events-none absolute inset-0 -z-10 rounded-md bg-[var(--state-hover)] opacity-0 group-hover/row:opacity-100" />
+      <span aria-hidden className={cn("nav-fade pointer-events-none absolute inset-0 -z-10 rounded-md", isSelected ? "bg-[var(--surface-selected)]" : "bg-accent", active || isSelected ? "opacity-100" : "opacity-0")} />
+      {active ? <span aria-hidden className={cn("absolute left-0 w-[2px]", ctx.compact ? "inset-y-2" : "inset-y-2.5")} style={{ background: GOLD }} /> : null}
+      {ctx.compact ? (
+        <>
+          {gutter}
+          <span className="min-w-0 flex-1 truncate">{thread.displayTitle}</span>
+          {onMachine ? <MachineMark item={onMachine} threadId={thread.id} /> : null}
+          <TagSwatches tags={tags} />
+          {thread.isPinned ? <Icon name="Pin" className="size-3 shrink-0 opacity-50" /> : null}
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">{h.label}</span>
+          <span className="relative w-6 shrink-0 text-right text-[11px] text-muted-foreground" style={tnum}>
+            <span className={cn(active && "nav-fade group-hover/row:opacity-0")}>{ago(thread.updatedAt, now)}</span>
+            {closeButton}
+          </span>
+        </>
       ) : (
-        <Node state={state} />
+        <>
+          <span className="flex h-[18px] shrink-0 items-center">{gutter}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="flex h-[18px] min-w-0 items-center gap-1.5">
+              {child ? <SubAgentGlyph /> : null}
+              <span className="min-w-0 flex-1 truncate leading-[18px]">{thread.displayTitle}</span>
+              {onMachine ? <MachineMark item={onMachine} threadId={thread.id} /> : null}
+              <TagSwatches tags={tags} />
+              {thread.isPinned ? <Icon name="Pin" className="size-3 shrink-0 opacity-50" /> : null}
+              <span className="relative inline-flex h-[18px] w-6 shrink-0 items-center justify-end text-[11px] font-normal text-muted-foreground" style={tnum}>
+                {running ? (
+                  <Spinner size={12} />
+                ) : (
+                  <span className={cn(active && "nav-fade group-hover/row:opacity-0")}>{ago(thread.updatedAt, now)}</span>
+                )}
+                {running ? null : closeButton}
+              </span>
+            </span>
+            <span className="nav-l2 mt-[2px] flex h-4 min-w-0 items-center gap-1.5 text-[11.5px] font-normal leading-4 text-muted-foreground">
+              {mixed ? <span aria-hidden className="size-[6px] shrink-0 rounded-full" style={{ background: ctx.colorOf(thread.projectId) }} /> : null}
+              <span className="min-w-0 flex-1 truncate">{execLine(thread.providerId, ctx.exec(thread.id))}</span>
+              {progress ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "h-4 shrink-0 rounded-[4px] px-1 py-0 text-[10px] font-medium leading-none",
+                        progress[0] < progress[1] ? "border-[color-mix(in_srgb,var(--attention)_55%,transparent)] text-[var(--warning-text)]" : "border-border text-muted-foreground",
+                      )}
+                      style={tnum}
+                    >
+                      {progress[0]}/{progress[1]}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{`${progress[0]} of ${progress[1]} sub-agents finished`}</TooltipContent>
+                </Tooltip>
+              ) : null}
+              {branch ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-4 min-w-0 max-w-[96px] shrink rounded-[4px] border-border px-1 py-0 font-mono text-[10px] font-normal leading-none text-muted-foreground">
+                      <span className="truncate">{branch}</span>
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{`Branch ${branch}`}</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </span>
+          </span>
+        </>
       )}
-      <span className="min-w-0 flex-1 truncate">{thread.displayTitle}</span>
-      {onMachine ? <MachineMark item={onMachine} threadId={thread.id} /> : null}
-      <TagSwatches tags={tags} />
-      {thread.isPinned ? <Icon name="Pin" className="size-3 shrink-0 opacity-50" /> : null}
-      <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/80">{h.label}</span>
-      <span className="w-6 shrink-0 text-right text-[11px] text-muted-foreground" style={tnum}>
-        {ago(thread.updatedAt, now)}
-      </span>
     </a>
   );
 
@@ -366,8 +491,13 @@ function ThreadRow({ thread, active, depth, now, onNavigate, moveTargets, folder
 
 const DRAG_SECTION = "application/x-nav-section";
 
-function Section({ id, label, numeral, count, actions, onDrop, menu, collapsed, onToggle, onReorder, onNest, nested, mark, children }: {
+function Section({ id, label, numeral, count, actions, onDrop, menu, collapsed, onToggle, onReorder, onNest, nested, mark, color, live = 0, onNew, children }: {
   id: string;
+  /** A project section: its colour dot, the bar down its chats, and the always-there new chat button. */
+  color?: string;
+  /** Chats running in this section, for the small live pill. */
+  live?: number;
+  onNew?: { label: string; run: () => void };
   label: string;
   numeral?: string;
   count: number;
@@ -386,6 +516,7 @@ function Section({ id, label, numeral, count, actions, onDrop, menu, collapsed, 
   children: ReactNode;
 }) {
   const [over, setOver] = useState<"item" | "section" | "into" | null>(null);
+  const opening = useJustOpened(!collapsed);
   // Upper third of a group heading = "put above"; the rest = "put inside".
   const zone = (e: DragEvent<HTMLElement>) => {
     if (!onNest) return "section" as const;
@@ -401,7 +532,7 @@ function Section({ id, label, numeral, count, actions, onDrop, menu, collapsed, 
       }}
       className={cn(
         caps,
-        "group relative mx-1 mb-1.5 flex h-6 cursor-pointer select-none items-center justify-between rounded-md",
+        "group/head relative mx-1 mb-1.5 flex h-6 cursor-pointer select-none items-center justify-between rounded-md",
         over === "item" && "bg-accent",
         over === "into" && "bg-accent ring-1 ring-[var(--attention)]",
       )}
@@ -428,26 +559,69 @@ function Section({ id, label, numeral, count, actions, onDrop, menu, collapsed, 
       title={onNest ? "Click to fold · drag to reorder · drop a project here to put it inside" : "Click to fold · drag to reorder"}
     >
       {over === "section" ? <span aria-hidden className="absolute -top-1 left-0 right-0 h-[2px] rounded-full" style={{ background: GOLD }} /> : null}
-      <span className="flex min-w-0 items-center gap-2">
-        <Icon name="ChevronRight" className={cn("size-3 shrink-0 transition-transform", !collapsed && "rotate-90")} />
-        {numeral ? (
-          <i className="-ml-0.5 font-serif text-[14px] normal-case tracking-normal" style={{ color: GOLD_INK }}>
-            {numeral}
-          </i>
-        ) : null}
-        {mark}
-        <span className="truncate">{label}</span>
-      </span>
+      {color ? (
+        <span className="flex min-w-0 items-center gap-2 normal-case tracking-normal">
+          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+          {numeral ? <i className="font-serif text-[12px] text-muted-foreground/70">{numeral}</i> : null}
+          {mark}
+          <span className="truncate text-[13px] font-semibold text-foreground">{label}</span>
+          <Icon
+            name="ChevronRight"
+            className={cn("size-3 shrink-0 text-muted-foreground transition-[transform,opacity] duration-150", collapsed ? "opacity-100" : "rotate-90 opacity-0 group-hover/head:opacity-100")}
+          />
+        </span>
+      ) : (
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon name="ChevronRight" className={cn("size-3 shrink-0 transition-transform", !collapsed && "rotate-90")} />
+          {numeral ? (
+            <i className="-ml-0.5 font-serif text-[14px] normal-case tracking-normal" style={{ color: GOLD_INK }}>
+              {numeral}
+            </i>
+          ) : null}
+          {mark}
+          <span className="truncate">{label}</span>
+        </span>
+      )}
       <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-        {actions ? <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">{actions}</span> : null}
-        <span className="w-5 text-right" style={tnum}>{count}</span>
+        {actions ? (
+          color ? (
+            // Project headings: the folder buttons take the count's place on hover, so the name keeps its room.
+            <span className="hidden items-center gap-0.5 group-hover/head:flex focus-within:flex">{actions}</span>
+          ) : (
+            <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/head:opacity-100 focus-within:opacity-100">{actions}</span>
+          )
+        ) : null}
+        {color && live > 0 ? (
+          <Badge
+            variant="outline"
+            className="h-[18px] gap-1 rounded-full border-[color-mix(in_srgb,var(--attention)_45%,transparent)] bg-[color-mix(in_srgb,var(--attention)_12%,transparent)] px-1.5 py-0 text-[10.5px] font-medium normal-case tracking-normal text-[var(--warning-text)]"
+            title={`${live} running`}
+          >
+            <Spinner size={9} label="" />
+            <span style={tnum}>{live}</span>
+          </Badge>
+        ) : null}
+        <span className={cn("w-5 text-right", color && actions && "group-hover/head:hidden")} style={tnum}>{count}</span>
+        {onNew ? <IconButton icon="Plus" label={onNew.label} onClick={onNew.run} /> : null}
       </span>
     </h3>
   );
   return (
     <section className={nested ? "mb-1 pt-1" : "mb-4 border-t border-border pt-3"}>
       {menu ? <Menu trigger={heading}>{menu}</Menu> : heading}
-      {collapsed ? null : children}
+      {collapsed ? null : color ? (
+        <div className="relative">
+          {/* The project's bar: joins its chats, grows in when the section opens. */}
+          <span
+            aria-hidden
+            className={cn("nav-bar pointer-events-none absolute -top-2.5 bottom-1 left-[7px] w-[2px] rounded-full", opening && "nav-bar-grow")}
+            style={{ background: `color-mix(in srgb, ${color} 70%, transparent)` }}
+          />
+          <div className={opening ? "nav-sec-in" : undefined}>{children}</div>
+        </div>
+      ) : (
+        <div className={opening ? "nav-sec-in" : undefined}>{children}</div>
+      )}
     </section>
   );
 }
@@ -533,6 +707,22 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
     setTagEditState({ kind: "new" });
   }, []);
   const navMode = useNavMode();
+  // Two-line rows by default; "Compact rows" brings back the one-line rows.
+  const [compact, setCompactNow] = usePersisted<boolean>("nav-skin:compact-rows", false);
+  const [rowsMotion, setRowsMotion] = useState<"" | "out" | "in">("");
+  const setCompact = useCallback((on: boolean) => {
+    // The second line fades out before the rows close up, and fades in after they open.
+    if (on) {
+      setRowsMotion("out");
+      window.setTimeout(() => { setCompactNow(true); setRowsMotion(""); }, 140);
+    } else {
+      setCompactNow(false);
+      setRowsMotion("in");
+      window.setTimeout(() => setRowsMotion(""), 320);
+    }
+  }, [setCompactNow]);
+  const exec = useThreadExec(threads, !compact);
+  ensureRailLook();
   // Which section heading is being dragged, so open groups can offer a "take it out" strip.
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   useEffect(() => {
@@ -601,7 +791,18 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
     [selecting, selected.size],
   );
   const machine = useMachine();
-  const rowCtx: RowCtx = { ops, machine: machine.items, hasMachine: machine.configured, selecting, selected, onSelectGesture, onNewTag: newTagFor };
+  const colorOf = (projectId: string) => projectCss(projectColorOf(projectId, ops.state.colors));
+  const close = (id: string) => {
+    closeChatTab(id, { threadId: activeThreadId, projectId: activeProjectId }, {
+      open: (x) => actions.open(x),
+      openNewThread: (o) => actions.openNewThread(o),
+    });
+    onNavigate();
+  };
+  const rowCtx: RowCtx = { ops, machine: machine.items, hasMachine: machine.configured, selecting, selected, onSelectGesture, onNewTag: newTagFor, compact, exec, colorOf, close };
+  // Row geometry for the tree guides: the gutter mark sits at the centre of line 1.
+  const rowMid = compact ? 17 : 15;
+  const kidLift = compact ? 10 : 23;
   const renderOrder: string[] = [];
 
   const loadDirs = useCallback(
@@ -642,14 +843,18 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
   // from the parent's node (thread rows: node centre at 15.5 + depth * 16).
   const hasRunning = (t: PluginSidebarThread): boolean =>
     (model.children.get(t.id) ?? []).some((c) => stateOf(c) === "running" || hasRunning(c));
-  const renderThread = (t: PluginSidebarThread, depth: number, child = false): ReactNode => {
+  const renderThread = (t: PluginSidebarThread, depth: number, child = false, mixed = false): ReactNode => {
     renderOrder.push(t.id);
     const kids = model.children.get(t.id) ?? [];
+    const progress: [number, number] | null = kids.length > 0 ? [kids.filter((c) => stateOf(c) !== "running").length, kids.length] : null;
     return (
       <div key={t.id}>
         <ThreadRow
           ctx={rowCtx}
           thread={t}
+          progress={progress}
+          child={child}
+          mixed={mixed}
           active={t.id === activeThreadId}
           depth={depth}
           now={now}
@@ -660,8 +865,8 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         />
         {kids.length > 0
           ? twigs(
-              kids.map((c) => ({ key: c.id, mid: 17, el: renderThread(c, depth + 1, true) })),
-              { x: 15 + depth * 16, tick: 9, lift: 10, hot: hasRunning(t) },
+              kids.map((c) => ({ key: c.id, mid: rowMid, el: renderThread(c, depth + 1, true) })),
+              { x: 15 + INSET + depth * 16, tick: 9, lift: kidLift, hot: hasRunning(t) },
             )
           : null}
       </div>
@@ -743,10 +948,10 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
               [
                 ...(isDrafting(f.projectId, f.id) ? [{ key: "__draft", mid: 17, el: renderDraft(f.projectId, f.id, depth + 1) }] : []),
                 ...node.subfolders.map((sf) => ({ key: sf.id, mid: 16, el: renderFolder(sf, depth + 1) })),
-                ...node.threads.map((t) => ({ key: t.id, mid: 17, el: renderThread(t, depth + 1) })),
+                ...node.threads.map((t) => ({ key: t.id, mid: rowMid, el: renderThread(t, depth + 1) })),
               ],
-              // Folder rows: chevron centre at 13 + depth * 16.
-              { x: 13 + depth * 16, tick: 10, lift: 8, hot: node.live },
+              // Folder rows: chevron centre at 13 + INSET + depth * 16.
+              { x: 13 + INSET + depth * 16, tick: 10, lift: 8, hot: node.live },
             )
           : null}
       </div>
@@ -761,6 +966,9 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
     const loose = open ? g.loose : g.loose.slice(0, FOLD);
     const rootDirs = dirs[`${g.id}:`];
     const isCollapsed = ops.state.collapsed.includes(sid);
+    const picked = ops.state.colors[g.id];
+    const color = projectColorOf(g.id, ops.state.colors);
+    const newChat = () => { actions.openNewThread({ projectId: g.id, focusPrompt: true }); onNavigate(); };
     return (
       <Section
         key={sid}
@@ -768,6 +976,9 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         label={label}
         numeral={numeral}
         nested={nested}
+        color={projectCss(color)}
+        live={model.running.filter((t) => t.projectId === g.id).length}
+        onNew={{ label: `New chat in ${label}`, run: newChat }}
         count={g.total}
         collapsed={isCollapsed}
         onToggle={() => ops.setCollapsed(sid, !isCollapsed)}
@@ -775,7 +986,6 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         onDrop={canFolder ? onDropInto(g.id, null) : undefined}
         actions={
           <>
-            <IconButton icon="MessageCirclePlus" label={`New chat in ${label}`} onClick={() => { actions.openNewThread({ projectId: g.id, focusPrompt: true }); onNavigate(); }} />
             {canFolder ? <IconButton icon="FolderPlus" label={`New folder in ${label}`} onClick={() => { if (isCollapsed) ops.setCollapsed(sid, false); setDraft({ kind: "new", projectId: g.id, parentId: null }); }} /> : null}
             {canFolder ? <IconButton icon="FolderOpen" label={`Add folders from the drive to ${label}`} onClick={() => { if (isCollapsed) ops.setCollapsed(sid, false); loadDirs(g.id, null); setPicker((p) => (p === g.id ? null : g.id)); }} /> : null}
           </>
@@ -783,7 +993,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         menu={
           <>
             <MenuLabel>{label}</MenuLabel>
-            <MenuItem icon="MessageCirclePlus" label="New chat" onSelect={() => { actions.openNewThread({ projectId: g.id, focusPrompt: true }); onNavigate(); }} />
+            <MenuItem icon="MessageCirclePlus" label="New chat" onSelect={newChat} />
             {canFolder ? <MenuItem icon="FolderPlus" label="New folder" onSelect={() => setDraft({ kind: "new", projectId: g.id, parentId: null })} /> : null}
             {canFolder ? (
               <MenuSub icon="Search" label="Add existing folder" onOpen={() => loadDirs(g.id, null)}>
@@ -793,7 +1003,15 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
             <MenuSeparator />
             <MenuItem icon="ChevronsUp" label="Move to top of list" onSelect={() => toTop(sid)} />
             {groupMenu(sid)}
+            <MenuSub lead={<span aria-hidden className="size-2.5 rounded-full" style={{ background: projectCss(color) }} />} label="Colour">
+              {PROJECT_COLORS.map((c) => (
+                <MenuItem key={c} lead={<span aria-hidden className="size-2.5 rounded-full" style={{ background: projectCss(c) }} />} label={PROJECT_COLOR_LABEL[c]} checked={picked === c} onSelect={() => ops.setProjectColor(g.id, c)} />
+              ))}
+              <MenuSeparator />
+              <MenuItem label="Automatic" hint={PROJECT_COLOR_LABEL[projectColorOf(g.id, undefined)]} checked={!picked} onSelect={() => ops.setProjectColor(g.id, null)} />
+            </MenuSub>
             <MenuItem icon={isCollapsed ? "ChevronsDown" : "ChevronsUp"} label={isCollapsed ? "Unfold section" : "Fold section"} onSelect={() => ops.setCollapsed(sid, !isCollapsed)} />
+            <MenuItem label="Compact rows" checked={compact} onSelect={() => setCompact(!compact)} />
             {canFolder ? <MenuItem icon="ChevronsUp" label="Collapse all folders" onSelect={() => setCollapsed((c) => ({ ...c, ...Object.fromEntries(g.allFolderIds.map((id) => [id, true])) }))} /> : null}
             {canFolder ? <MenuItem icon="ChevronsDown" label="Expand all folders" onSelect={() => setCollapsed((c) => ({ ...c, ...Object.fromEntries(g.allFolderIds.map((id) => [id, false])) }))} /> : null}
           </>
@@ -841,7 +1059,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           onToggle={() => ops.setCollapsed("later", !collapsedSet.has("later"))}
           onReorder={reorder}
         >
-          {model.later.map((t) => renderThread(t, 0))}
+          {model.later.map((t) => renderThread(t, 0, false, true))}
         </Section>
       ),
       live: false,
@@ -862,7 +1080,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           onReorder={reorder}
           actions={<IconButton icon="Check" label="Select all that need you" onClick={() => { setSelecting(true); setSelected(new Set(model.needs.map((t) => t.id))); }} />}
         >
-          {(expanded.__needs ? model.needs : model.needs.slice(0, NEEDS_FOLD)).map((t) => renderThread(t, 0))}
+          {(expanded.__needs ? model.needs : model.needs.slice(0, NEEDS_FOLD)).map((t) => renderThread(t, 0, false, true))}
           <More shown={expanded.__needs ? model.needs.length : Math.min(NEEDS_FOLD, model.needs.length)} total={model.needs.length} open={!!expanded.__needs} onToggle={() => setExpanded((o) => ({ ...o, __needs: !o.__needs }))} />
         </Section>
       ),
@@ -883,7 +1101,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
           onToggle={() => ops.setCollapsed("pinned", !collapsedSet.has("pinned"))}
           onReorder={reorder}
         >
-          {model.pinned.map((t) => renderThread(t, 0))}
+          {model.pinned.map((t) => renderThread(t, 0, false, true))}
         </Section>
       ),
       live: false,
@@ -1117,10 +1335,12 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
   const selectedThreads = threads.filter((t) => selected.has(t.id));
 
   // Right-click anywhere on the rail that has no menu of its own: New group.
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
   return (
+    <TooltipProvider delayDuration={450} skipDelayDuration={150}>
     <Menu
       trigger={
-        <div className="min-h-full px-2 pb-6 pt-2">
+        <div className={cn("min-h-full px-2 pb-6 pt-2", rowsMotion === "out" && "nav-rows-out", rowsMotion === "in" && "nav-rows-in")}>
           <NowCard running={model.running} needs={model.allNeeds} onNavigate={onNavigate} />
           <HarnessFilter counts={model.counts} value={harness} onChange={setHarness} />
           <div className="mx-1 mb-3 flex min-w-0 items-center gap-1.5">
@@ -1149,6 +1369,24 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
               tagTargets.current = [];
             }}
           />
+
+          <button
+            type="button"
+            onClick={() => { actions.openNewThread({ projectId: activeProjectId ?? undefined, focusPrompt: true }); onNavigate(); }}
+            title={activeProject ? `New chat in ${activeProject.isPersonal ? "Personal" : activeProject.name}` : "New chat"}
+            className="group/new relative isolate mb-3 flex h-8 w-full items-center gap-2.5 rounded-md pr-2 text-left text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+            style={{ paddingLeft: 10 + INSET - 1 }}
+          >
+            <span aria-hidden className="nav-fade pointer-events-none absolute inset-0 -z-10 rounded-md bg-[var(--state-hover)] opacity-0 group-hover/new:opacity-100" />
+            <Icon name="Plus" className="size-[13px] shrink-0" />
+            <span className="min-w-0 flex-1 truncate">New chat</span>
+            {activeProject ? (
+              <span className="flex min-w-0 shrink items-center gap-1.5 text-[11px]">
+                <span aria-hidden className="size-[6px] shrink-0 rounded-full" style={{ background: colorOf(activeProject.id) }} />
+                <span className="truncate">{activeProject.isPersonal ? "Personal" : activeProject.name}</span>
+              </span>
+            ) : null}
+          </button>
 
           {groupDraft(null, 0)}
           {body}
@@ -1186,6 +1424,8 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
       }
     >
       <MenuItem lead={<GroupGlyph />} label="New group" hint="holds projects" onSelect={() => setDraft({ kind: "group-new", parentId: null, members: [] })} />
+      <MenuSeparator />
+      <MenuItem label="Compact rows" hint={compact ? undefined : "one line each"} checked={compact} onSelect={() => setCompact(!compact)} />
       {navMode === "hidden" ? (
         <>
           <MenuSeparator />
@@ -1193,6 +1433,7 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
         </>
       ) : null}
     </Menu>
+    </TooltipProvider>
   );
 }
 
@@ -1236,11 +1477,11 @@ function DrivePicker({ list, taken, onPick, onClose }: { list: Directory[] | "lo
             key={d.relative}
             type="button"
             onClick={() => onPick(d)}
-            className="group flex h-8 w-full items-center gap-2 px-3 text-left text-[12.5px] text-foreground hover:bg-accent"
+            className="group/pick flex h-8 w-full items-center gap-2 px-3 text-left text-[12.5px] text-foreground hover:bg-accent"
           >
             <Icon name="Folder" className="size-3.5 shrink-0 opacity-60" />
             <span className="min-w-0 flex-1 truncate">{d.name}</span>
-            <Icon name="Plus" className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-70" />
+            <Icon name="Plus" className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover/pick:opacity-70" />
           </button>
         ))}
       </div>
@@ -1292,18 +1533,18 @@ function FolderRow({ folder, depth, open, count, live, todos, onToggle, onDrop, 
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
       title={folder.path}
       className={cn(
-        "group relative flex h-[32px] cursor-pointer select-none items-center gap-2 rounded-md pr-1 text-[13px] font-medium text-foreground outline-none",
+        "group/folder relative flex h-[32px] cursor-pointer select-none items-center gap-2 rounded-md pr-1 text-[13px] font-medium text-foreground outline-none",
         "hover:bg-[var(--state-hover)] focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent",
         over && "bg-accent ring-1 ring-[var(--attention)]",
       )}
-      style={{ paddingLeft: 6 + depth * 16 }}
+      style={{ paddingLeft: 6 + INSET + depth * 16 }}
     >
       <Icon name="ChevronRight" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
       <Icon name={open ? "FolderOpen" : "Folder"} className="size-4 shrink-0 opacity-75" />
       <span className="min-w-0 flex-1 truncate">{folder.name}</span>
       {live ? <Lattice cell={2} gap={1} label="Something in here is working" /> : null}
       <TodoBadge n={todos} />
-      <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+      <span className="flex items-center opacity-0 transition-opacity group-hover/folder:opacity-100 group-focus-visible/folder:opacity-100">
         <IconButton icon="FolderPlus" label={`New folder inside ${folder.name}`} onClick={onNewFolder} />
         {onNewChat ? <IconButton icon="MessageCirclePlus" label={`New chat in ${folder.name}`} onClick={onNewChat} /> : null}
       </span>
@@ -1339,10 +1580,10 @@ function buildModel(
   }
   for (const list of children.values()) list.sort(byUrgencyThenRecent);
 
-  const counts = new Map<string, [Harness, number]>();
+  const counts = new Map<string, [Harness, number, string]>();
   for (const t of live) {
     const h = harnessOf(t.providerId);
-    const entry = counts.get(h.key) ?? [h, 0];
+    const entry = counts.get(h.key) ?? [h, 0, t.providerId];
     entry[1] += 1;
     counts.set(h.key, entry);
   }
@@ -1501,32 +1742,63 @@ function NowCard({ running, needs, onNavigate }: { running: PluginSidebarThread[
   );
 }
 
-/** All · Claude · Codex · Cursor as one segmented row that never wraps; the active segment is gold. */
-function HarnessFilter({ counts, value, onChange }: { counts: Array<[Harness, number]>; value: string | null; onChange: (key: string | null) => void }) {
-  const item = (key: string | null, label: string, n: number) => {
+/** bb's own logo for a harness (an id-only record falls back to bb's generic glyph). */
+function HarnessIcon({ providerId }: { providerId: string }) {
+  const { providers } = useProviders();
+  const rec = providers.find((p) => p.id === providerId) as { id: string; logoUrl?: string | null } | undefined;
+  return <ProviderIcon providerKind="agent" provider={rec ?? { id: providerId }} className="size-3.5 shrink-0" />;
+}
+
+/**
+ * All · Claude · Codex · Cursor as one segmented row that never wraps; the active
+ * segment is gold. At the rail's usual width each harness is its logo and count
+ * (the name in a tooltip and the accessible label); the names come back once the
+ * row is wide enough to show every one in full. Words are never cut short.
+ */
+function HarnessFilter({ counts, value, onChange }: { counts: Array<[Harness, number, string]>; value: string | null; onChange: (key: string | null) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Room for "Claude 79" and the like in every segment, with a margin.
+  const words = width > 0 && width >= 44 + counts.reduce((n, [h, c]) => n + 34 + h.label.length * 7 + String(c).length * 7, 0);
+  const item = (key: string | null, label: string, n: number, providerId: string | null) => {
     const on = value === key;
-    return (
+    const button = (
       <button
         key={key ?? "all"}
         type="button"
         aria-pressed={on}
-        title={`${label}: ${n}`}
+        aria-label={`${label}: ${n} chats`}
         onClick={() => onChange(key)}
         className={cn(
-          "inline-flex h-6 min-w-0 flex-auto items-center justify-center gap-1 rounded-full px-1.5 text-[12px] transition-colors",
+          "inline-flex h-6 flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 text-[12px] transition-colors",
           on ? "bg-[var(--attention)] font-medium text-neutral-900" : "text-muted-foreground hover:text-foreground",
         )}
       >
-        <span className="min-w-0 truncate">{label}</span>
-        <span className={cn("shrink-0", on ? "opacity-70" : "opacity-60")} style={tnum}>{n}</span>
+        {providerId ? <HarnessIcon providerId={providerId} /> : <span>{label}</span>}
+        {providerId && words ? <span>{label}</span> : null}
+        <span className={cn(on ? "opacity-70" : "opacity-60")} style={tnum}>{n}</span>
       </button>
+    );
+    if (!providerId || words) return button;
+    return (
+      <Tooltip key={key ?? "all"}>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="bottom">{`${label}: ${n} chats`}</TooltipContent>
+      </Tooltip>
     );
   };
   const total = counts.reduce((s, [, n]) => s + n, 0);
   return (
-    <div className="mx-1 mb-2 flex h-7 min-w-0 flex-nowrap items-center gap-0.5 rounded-full border border-border p-0.5" role="group" aria-label="Filter by harness">
-      {item(null, "All", total)}
-      {counts.map(([h, n]) => item(h.key, h.label, n))}
+    <div ref={ref} className="mx-1 mb-2 flex h-7 min-w-0 flex-nowrap items-center gap-0.5 rounded-full border border-border p-0.5" role="group" aria-label="Filter by harness">
+      {item(null, "All", total, null)}
+      {counts.map(([h, n, providerId]) => item(h.key, h.label, n, providerId))}
     </div>
   );
 }

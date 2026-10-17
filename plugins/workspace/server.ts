@@ -49,9 +49,14 @@ const stateSchema = z.object({
   collapsed: z.array(z.string()),
   groups: z.array(groupSchema).default([]),
   within: z.record(z.string(), z.string()).default({}),
+  // Project colours for the rail (projectId -> palette name). Plain strings so a
+  // name the rail no longer knows never fails the parse; the rail falls back.
+  colors: z.record(z.string(), z.string().max(16)).default({}),
 });
 export type RailState = z.infer<typeof stateSchema>;
-const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {} };
+const EMPTY: RailState = { tags: [], assign: {}, later: {}, order: [], collapsed: [], groups: [], within: {}, colors: {} };
+const PROJECT_COLORS = ["gold", "orange", "green", "teal", "plum", "rose", "slate"] as const;
+const execSchema = z.object({ model: z.string(), reasoningLevel: z.string() });
 const ids = z.array(z.string().min(1).max(64)).min(1).max(200);
 
 export const rpcContract = defineRpcContract({
@@ -88,6 +93,9 @@ export const rpcContract = defineRpcContract({
   order_set: { input: z.object({ order: z.array(z.string().max(80)).max(200) }), output: stateSchema },
   collapsed_set: { input: z.object({ id: z.string().max(80), collapsed: z.boolean() }), output: stateSchema },
   forget_threads: { input: z.object({ threadIds: ids }), output: stateSchema },
+  project_color_set: { input: z.object({ projectId: z.string().min(1).max(80), color: z.enum(PROJECT_COLORS).nullable() }), output: stateSchema },
+  // Model and effort per chat for the two-line rail rows, asked in batches.
+  thread_exec: { input: z.object({ ids: z.array(z.string().min(1).max(64)).min(1).max(200) }), output: z.record(z.string(), execSchema.nullable()) },
   group_create: {
     input: z.object({ name: z.string().trim().min(1).max(48), parentId: z.string().nullable(), members: z.array(sectionId).max(50).optional() }),
     output: groupSchema,
@@ -440,6 +448,31 @@ export default async function plugin(bb: BbPluginApi) {
         else set.delete(id);
         s.collapsed = [...set];
       }),
+    project_color_set: ({ projectId, color }) =>
+      mutate((s) => {
+        if (color) s.colors[projectId] = color;
+        else delete s.colors[projectId];
+      }),
+    // bb keeps a chat's model and effort per turn, not on its list row, so ask
+    // for each chat's current execution options, eight at a time. A chat that
+    // has never run answers null; one that fails is left out and asked later.
+    thread_exec: async ({ ids: threadIds }) => {
+      const out: Record<string, { model: string; reasoningLevel: string } | null> = {};
+      let next = 0;
+      const worker = async () => {
+        while (next < threadIds.length) {
+          const threadId = threadIds[next++];
+          try {
+            const r = await bb.sdk.threads.defaultExecutionOptions({ threadId });
+            out[threadId] = r ? { model: r.model, reasoningLevel: r.reasoningLevel } : null;
+          } catch {
+            /* left out: the rail asks again later */
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(8, threadIds.length) }, worker));
+      return out;
+    },
     forget_threads: ({ threadIds }) =>
       mutate((s) => {
         for (const id of threadIds) {
