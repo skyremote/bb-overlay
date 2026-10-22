@@ -143,6 +143,15 @@ It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
 
+## What's new in 1.7.2
+
+- **Helper Desk**, **Cache Clock** and **Screen Share** each have a page in bb's left rail, so you can open them in one click from anywhere.
+  - **Agents** (Helper Desk): every chat with agents running right now, each as its lead card with the agent tree, then the runs that finished in the last day. Click a chat to open it with Helper Desk showing.
+  - **Cache clock**: your Claude chats that replied in the last six hours, the ones about to go cold first, each with its countdown, Keep warm and Hand off.
+  - **Screen share**: the on/off switch, the preview and your people and company lists, as a full page.
+- A new rail page starts under **More** in the rail. To pin it, open **Customise rail** and tick it. The installer doesn't change your rail for you.
+- The right-panel tabs from 1.7.1 work as before.
+
 ## What's new in 1.7.1
 
 - Every mod now has its own tab in the right panel's **+** menu, next to Helper Desk.

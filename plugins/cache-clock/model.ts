@@ -166,3 +166,27 @@ export function isHandoffRequestText(text: string): boolean {
 export function appendPingLog(log: KeepWarm["log"], at: number, cachedTokens: number | null): NonNullable<KeepWarm["log"]> {
   return [...(log ?? []), { at, cachedTokens }].slice(-50);
 }
+
+/** Rail page: threads worth a cache clock — Claude threads touched recently, newest first, bounded. */
+export function pickRecentClaudeThreads<T extends { id: string; providerId: string; updatedAt: number; archivedAt?: number | null }>(
+  threads: readonly T[],
+  now: number,
+  windowMs: number,
+  max: number,
+): T[] {
+  return threads
+    .filter((t) => isSupportedProvider(t.providerId) && !t.archivedAt && now - t.updatedAt <= windowMs)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, max);
+}
+
+/** Rail page order: running turns first, then warm caches soonest to go cold, then cold ones (most recent first). */
+export function sortOverview(rows: readonly ClockStatus[], now: number): ClockStatus[] {
+  const rank = (s: ClockStatus) => (s.running ? 0 : remainingMs(s.expiresAt, now) > 0 ? 1 : 2);
+  return [...rows].sort((a, b) => {
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (ra === 1) return (a.expiresAt ?? 0) - (b.expiresAt ?? 0);
+    return (b.lastReplyAt ?? 0) - (a.lastReplyAt ?? 0);
+  });
+}

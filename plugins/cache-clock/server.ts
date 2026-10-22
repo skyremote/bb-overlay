@@ -20,6 +20,8 @@ import {
   isPingText,
   isSupportedProvider,
   keepWarmSchema,
+  pickRecentClaudeThreads,
+  sortOverview,
   handoffSchema,
   statusSchema,
   type ClockStatus,
@@ -37,6 +39,10 @@ export const rpcContract = defineRpcContract({
   },
   requestHandoff: { input: z.object({ threadId: threadIdSchema }), output: statusSchema },
   clearHandoff: { input: z.object({ threadId: threadIdSchema }), output: statusSchema },
+  overview: {
+    input: z.null(),
+    output: z.array(z.object({ title: z.string(), status: statusSchema })).max(20),
+  },
   open_panel: {
     input: z.object({ threadId: z.string().regex(/^thr_[a-zA-Z0-9_-]+$/), windowId: z.string().min(4).max(64) }),
     output: z.object({ ok: z.boolean() }),
@@ -294,6 +300,23 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true };
     },
     status: ({ threadId }) => status(threadId),
+    overview: async () => {
+      const now = Date.now();
+      const list = await bb.sdk.threads.list({ archived: false, limit: 200 });
+      const picked = pickRecentClaudeThreads(list, now, 6 * 60 * 60 * 1000, 20);
+      const rows = await Promise.all(
+        picked.map(async (t) => {
+          try {
+            return { title: t.title || "Untitled chat", status: await status(t.id) };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const ok = rows.filter((r): r is { title: string; status: ClockStatus } => r !== null);
+      const order = sortOverview(ok.map((r) => r.status), now).map((st) => st.threadId);
+      return order.map((id) => ok.find((r) => r.status.threadId === id)!).filter((r) => r.status.lastReplyAt !== null || r.status.running);
+    },
     setKeepWarm: async ({ threadId, on }) => {
       if (on) {
         await writeKeepWarm(threadId, {

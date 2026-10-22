@@ -493,6 +493,104 @@ function CachePanel({ threadId }: { threadId: string }) {
 }
 
 /** Opens this plugin's right-panel tab when the Mods hub asks, in the asking window only. */
+/** Left-rail page: every recent Claude thread's cache, soonest to go cold first. */
+type OverviewRow = { title: string; status: ClockStatus };
+function CacheRailPage() {
+  const rpc = useRpc<typeof rpcContract>();
+  const rpcRef = useRef(rpc);
+  rpcRef.current = rpc;
+  const nav = useBbNavigate();
+  const [rows, setRows] = useState<OverviewRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const load = useCallback(() => {
+    rpcRef.current.call("overview", null).then(
+      (next) => {
+        setRows(next);
+        if (next[0]) setOffset(next[0].status.now - Date.now());
+        setError(null);
+      },
+      (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
+    );
+  }, []);
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => clearInterval(timer);
+  }, [load]);
+  useRealtime(CHANGED, () => load());
+  const now = useNow(offset, true);
+  const act = async (fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    load();
+  };
+  return (
+    <div className="h-full overflow-y-auto p-4 md:p-5">
+      <div className="mx-auto w-full max-w-3xl space-y-4 cc-panel">
+        <p className="cc-line">
+          Claude chats that replied in the last six hours. Warm caches are cheap to come back to; the ones about to go
+          cold are at the top.
+        </p>
+        {error && <p className="cc-line cc-warn">{error}</p>}
+        {!rows && !error && <p className="cc-line">Loading your chats…</p>}
+        {rows && rows.length === 0 && <p className="cc-line">No Claude chats replied in the last six hours.</p>}
+        {rows?.map(({ title, status: st }) => {
+          const live = st.supported && !st.running && st.lastReplyAt !== null;
+          const left = remainingMs(st.expiresAt, now);
+          const warm = live && left > 0;
+          const keeping = Boolean(st.keepWarm?.enabled);
+          return (
+            <div className="cc-card cc-rail-row" key={st.threadId}>
+              <div className="cc-ring-wrap cc-ring-small">
+                <Ring fraction={live ? fractionLeft(st.expiresAt, st.ttlMinutes, now) : 0} warm={warm} />
+                <div className="cc-ring-label">
+                  <strong>{st.running ? "Working" : warm ? formatCountdown(left) : "Cold"}</strong>
+                </div>
+              </div>
+              <div className="cc-rail-text">
+                <button className="cc-rail-title" onClick={() => nav.toThread(st.threadId)} title="Open this chat">
+                  {title}
+                </button>
+                <span className={"cc-state " + (st.running ? "" : warm ? "cc-green" : "cc-amber")}>
+                  <ClockIcon />
+                  {st.running ? "Turn running" : warm ? "Cache warm" : "Cache cold"}
+                  {" · "}
+                  {formatTokens(st.usedTokens)} tokens
+                  {keeping ? " · keeping warm" : ""}
+                </span>
+              </div>
+              <div className="cc-actions">
+                <button
+                  className={"cc-btn" + (keeping ? " cc-btn-on" : "")}
+                  onClick={() => act(() => rpcRef.current.call("setKeepWarm", { threadId: st.threadId, on: !keeping }))}
+                >
+                  {keeping ? "Stop keeping warm" : "Keep warm"}
+                </button>
+                <button
+                  className="cc-btn"
+                  disabled={st.running || st.handoff?.status === "requested"}
+                  onClick={() =>
+                    act(async () => {
+                      if (st.handoff?.status !== "ready") await rpcRef.current.call("requestHandoff", { threadId: st.threadId });
+                      nav.toThread(st.threadId);
+                    })
+                  }
+                >
+                  {st.handoff?.status === "ready" ? "Open brief" : st.handoff?.status === "requested" ? "Writing brief…" : "Hand off"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function windowId(): string {
   const w = window as unknown as { __nbmWindowId?: string };
   if (!w.__nbmWindowId) w.__nbmWindowId = Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -535,6 +633,8 @@ export default definePluginApp((app) => {
     layout: "padded",
     component: ({ threadId }) => <CachePanel threadId={threadId} />,
   });
+  // Left-rail destination (bb's navigation rail and Customise rail list plugin nav panels).
+  app.slots.navPanel({ id: "cache", title: "Cache clock", icon: "Timer", path: "cache", component: CacheRailPage });
   app.composer.experimental_registerCommand({
     id: "handoff",
     title: "Hand off to a new thread",

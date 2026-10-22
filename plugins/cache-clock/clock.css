@@ -171,3 +171,14 @@
 .cc-seg-btn{padding:4px 10px;font-size:12px;background:transparent;border:0;cursor:pointer;color:inherit}
 .cc-seg-on{background:color-mix(in srgb,currentColor 12%,transparent);font-weight:600}
 @media (prefers-reduced-motion:reduce){.cc-ring-fill{transition:none}}
+/* Left-rail page rows */
+.cc-rail-row{flex-direction:row;align-items:center;gap:14px}
+.cc-ring-small{width:64px;height:64px}
+.cc-ring-small .cc-ring{width:64px;height:64px}
+.cc-ring-small .cc-ring-label strong{font-size:12px}
+.cc-rail-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.cc-rail-title{all:unset;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-rail-title:hover{text-decoration:underline}
+.cc-rail-title:focus-visible{outline:2px solid var(--cc-blue,#2b6cb0);outline-offset:2px;border-radius:3px}
+.cc-btn-on{background:color-mix(in srgb,#2f855a 18%,transparent)}
+@media (max-width:640px){.cc-rail-row{flex-wrap:wrap}.cc-rail-row .cc-actions{width:100%}}

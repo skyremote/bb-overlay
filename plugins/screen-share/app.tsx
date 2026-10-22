@@ -325,6 +325,21 @@ export default definePluginApp((app) => {
     component: () => <ScreenSharePanel />,
   });
 
+  // Left-rail destination (bb's navigation rail and Customise rail list plugin nav panels).
+  app.slots.navPanel({
+    id: "screen-share",
+    title: "Screen share",
+    icon: "EyeOff",
+    path: "screen-share",
+    component: () => (
+      <div className="h-full overflow-y-auto p-4 md:p-5">
+        <div className="mx-auto w-full max-w-3xl space-y-4">
+          <ScreenSharePanel />
+        </div>
+      </div>
+    ),
+  });
+
   app.commands.register({
     id: "toggle",
     title: "Screen-share mode: turn on or off",

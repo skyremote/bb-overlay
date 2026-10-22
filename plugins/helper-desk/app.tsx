@@ -41,6 +41,7 @@ import {
   type ReflectStatus,
   type ScreenShareStatus,
 } from "./hubmodel";
+import type { RailOverview } from "./railmodel";
 import "./desk.css";
 
 /** Agent colours, in launch order: orange, blue, green, pink, red, purple, teal, amber. */
@@ -688,6 +689,7 @@ function Taskbar() {
   const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : null;
   const settings = useHideSettings();
   const { data } = useDesk(threadId);
+  usePendingDeskOpen(threadId);
   const [, force] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(ref);
@@ -943,6 +945,106 @@ function ModsHub({ threadId }: { threadId: string }) {
   );
 }
 
+// ---------- Left-rail "Agents" page ----------
+
+/** Threads the Agents page asked to open with Helper Desk showing; the thread's taskbar opens it on arrival. */
+const pendingDeskOpen = new Set<string>();
+
+function usePendingDeskOpen(threadId: string | null) {
+  const nav = useBbNavigate();
+  useEffect(() => {
+    if (!threadId || !pendingDeskOpen.has(threadId)) return;
+    pendingDeskOpen.delete(threadId);
+    userOpened.add(threadId);
+    const t = setTimeout(() => nav.openThreadPanel({ actionId: "desk", title: "Helper Desk" }), 150);
+    return () => clearTimeout(t);
+  }, [threadId, nav]);
+}
+
+function AgentsRailPage() {
+  const rpc = useRpc<typeof rpcContract>();
+  const rpcRef = useRef(rpc);
+  rpcRef.current = rpc;
+  const nav = useBbNavigate();
+  const [data, setData] = useState<RailOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const busy = (data?.active.length ?? 0) > 0;
+  const load = useCallback(() => {
+    rpcRef.current.call("overview", null).then(
+      (next) => {
+        setData(next);
+        setError(null);
+      },
+      (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
+    );
+  }, []);
+  useEffect(() => {
+    load();
+    const t = setInterval(() => {
+      if (document.visibilityState !== "hidden") load();
+    }, busy ? 4000 : 20000);
+    return () => clearInterval(t);
+  }, [load, busy]);
+  const now = useNow(busy, null);
+  const go = (threadId: string) => {
+    pendingDeskOpen.add(threadId);
+    nav.toThread(threadId);
+  };
+  return (
+    <div className="h-full overflow-y-auto p-4 md:p-5">
+      <div className="mx-auto w-full max-w-3xl space-y-4 hd-railpage">
+        <p className="hd-rail-intro">
+          Every chat with agents running right now, then the runs that finished in the last day. Click a chat to open it
+          with Helper Desk showing.
+        </p>
+        {error && <p className="hd-empty">Could not load: {error}</p>}
+        {!data && !error && <p className="hd-empty">Loading your chats…</p>}
+        {data && (
+          <>
+            <h3 className="hd-rail-h">Running now · {data.active.length}</h3>
+            {data.active.length === 0 && <p className="hd-empty hd-rail-none">No agents running in any chat.</p>}
+            {data.active.map(({ threadId, title, snapshot }) => (
+              <section className="hd-rail-thread" key={threadId}>
+                <button type="button" className="hd-rail-title" onClick={() => go(threadId)} title="Open this chat with Helper Desk">
+                  {title}
+                  <span className="hd-rail-go" aria-hidden="true">&#8250;</span>
+                </button>
+                <LeadCard lead={snapshot.lead} />
+                <AgentTree
+                  agents={snapshot.agents}
+                  pulse={(a) => (a.state === "running" ? "loop" : null)}
+                  render={(a) => <AgentCard agent={a} now={now} freshMs={0} />}
+                />
+              </section>
+            ))}
+            <h3 className="hd-rail-h">Finished in the last day · {data.recent.length}</h3>
+            {data.recent.length === 0 && <p className="hd-empty hd-rail-none">No finished agent runs in the last day.</p>}
+            {data.recent.length > 0 && (
+              <div className="hd-rail-timeline">
+                {data.recent.map(({ threadId, title, model, batch }) => (
+                  <div className="hd-rail-recent" key={threadId + batch.key}>
+                    <button type="button" className="hd-rail-title hd-rail-title-small" onClick={() => go(threadId)} title="Open this chat with Helper Desk">
+                      {title}
+                      <span className="hd-rail-go" aria-hidden="true">&#8250;</span>
+                    </button>
+                    <ol className="hd-timeline">
+                      <HistoryNode batch={batch} now={Date.now()} defaultOpen={false} lead={{ label: "Lead", model }} />
+                    </ol>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="hd-hub-foot">
+              Looked at {data.scanned} {data.scanned === 1 ? "chat" : "chats"} touched in the last day. Updates every{" "}
+              {busy ? "few seconds" : "20 seconds"}.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default definePluginApp((app) => {
   app.slots.threadPanelAction({
     id: "desk",
@@ -963,6 +1065,8 @@ export default definePluginApp((app) => {
     component: ({ threadId }) => <ModsHub threadId={threadId} />,
   });
   app.slots.experimental_threadHeaderAction({ id: "desk-open", title: "Helper Desk", component: HeaderButton });
+  // Left-rail destination (bb's navigation rail and Customise rail list plugin nav panels).
+  app.slots.navPanel({ id: "agents", title: "Agents", icon: "Bot", path: "agents", component: AgentsRailPage });
   app.composer.customize({
     id: "helper-desk",
     scopes: ["thread"],

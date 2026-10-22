@@ -224,3 +224,16 @@
 .hd-hub-switch-on{background:#d9534f}
 .hd-hub-switch-on i{transform:translateX(16px)}
 @media (prefers-reduced-motion:reduce){.hd-hub-switch i{transition:none}}
+/* Left-rail Agents page */
+.hd-railpage{font-size:13px}
+.hd-rail-intro{margin:0;opacity:.75;line-height:1.45}
+.hd-rail-h{margin:8px 0 0;font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;opacity:.7}
+.hd-rail-none{margin:0}
+.hd-rail-thread{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:12px;background:color-mix(in srgb,currentColor 2%,transparent)}
+.hd-rail-title{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600;font-size:14px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.hd-rail-title:hover{text-decoration:underline}
+.hd-rail-title:focus-visible{outline:2px solid #2b6cb0;outline-offset:2px;border-radius:4px}
+.hd-rail-title-small{font-size:13px;margin:0 0 4px}
+.hd-rail-go{opacity:.5;font-size:16px;line-height:1}
+.hd-rail-recent{list-style:none;margin-bottom:10px}
+.hd-rail-timeline{padding-left:0}

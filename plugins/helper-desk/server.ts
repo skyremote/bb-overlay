@@ -3,6 +3,7 @@
 // estimates the chat's API-equivalent cost, and serves a per-thread history of
 // past agent batches (parsed state cached in plugin storage by thread + last seq).
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { isActive, pickRailThreads, railOverviewSchema, recentBatches, type RailOverview } from "./railmodel";
 import { open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -37,6 +38,7 @@ const threadIdSchema = z.string().regex(/^thr_[a-zA-Z0-9_-]+$/);
 export const rpcContract = defineRpcContract({
   snapshot: { input: z.object({ threadId: threadIdSchema }), output: snapshotSchema },
   history: { input: z.object({ threadId: threadIdSchema }), output: historySchema },
+  overview: { input: z.null(), output: railOverviewSchema },
 });
 
 const EVENT_TYPES = [
@@ -387,9 +389,33 @@ export default function plugin(bb: BbPluginApi) {
     return { threadId, lead: { label: "Lead", model: leadModel ? modelLabel(leadModel) : providerLabel(providerId) }, batches: out, updatedAt: now };
   }
 
+
+  /** Left-rail Agents page: threads with agents running now, then the last day's finished runs. */
+  async function overview(): Promise<RailOverview> {
+    const now = Date.now();
+    const list = await bb.sdk.threads.list({ archived: false, limit: 200 });
+    const picked = pickRailThreads(list, now);
+    const read = await Promise.all(
+      picked.map(async (t) => {
+        try {
+          const [snap, hist] = await Promise.all([snapshot(t.id), history(t.id)]);
+          return { threadId: t.id, title: t.title || "Untitled chat", snap, batches: hist.batches, model: hist.lead.model };
+        } catch (e) {
+          bb.log.warn(`overview skipped ${t.id}: ${String(e)}`);
+          return null;
+        }
+      }),
+    );
+    const ok = read.filter((r): r is NonNullable<typeof r> => r !== null);
+    const active = ok.filter((r) => isActive(r.snap)).map((r) => ({ threadId: r.threadId, title: r.title, snapshot: r.snap }));
+    const recent = recentBatches(ok, now).map(({ entry, batch }) => ({ threadId: entry.threadId, title: entry.title, model: entry.model, batch }));
+    return { active, recent, scanned: picked.length, updatedAt: now };
+  }
+
   bb.rpc.register(rpcContract, {
     snapshot: ({ threadId }) => snapshot(threadId),
     history: ({ threadId }) => history(threadId),
+    overview: () => overview(),
   });
 
   // Tell open panels to refetch when a watched thread moves. Signals carry no content.
