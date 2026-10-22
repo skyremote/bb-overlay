@@ -29,6 +29,8 @@ export const keepWarmSchema = z.object({
   lastPingForReplyAt: z.number().nullable(),
   lastPingCachedTokens: z.number().nullable(),
   stoppedReason: z.enum(["user-message", "time-limit", "manual", "thread-gone"]).nullable(),
+  /** Newest last; capped so the stored row stays small. */
+  log: z.array(z.object({ at: z.number(), cachedTokens: z.number().nullable() })).max(50).optional(),
 });
 export type KeepWarm = z.infer<typeof keepWarmSchema>;
 
@@ -158,4 +160,9 @@ export function isPingText(text: string): boolean {
 
 export function isHandoffRequestText(text: string): boolean {
   return text.includes("<handoff> and </handoff>");
+}
+
+/** Append one ping to the keep-warm log, keeping the newest 50. */
+export function appendPingLog(log: KeepWarm["log"], at: number, cachedTokens: number | null): NonNullable<KeepWarm["log"]> {
+  return [...(log ?? []), { at, cachedTokens }].slice(-50);
 }

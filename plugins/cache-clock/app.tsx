@@ -9,6 +9,9 @@ import {
   useComposer,
   useRealtime,
   useRpc,
+  useSdk,
+  useSettings,
+  experimental_usePluginId,
 } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server";
 import {
@@ -338,11 +341,180 @@ function HandoffPopup() {
   );
 }
 
+/** Right-panel tab: the same clock, larger, with the ping log and settings. */
+function Ring({ fraction, warm }: { fraction: number; warm: boolean }) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="cc-ring" viewBox="0 0 120 120" aria-hidden="true">
+      <circle cx="60" cy="60" r={r} className="cc-ring-track" />
+      <circle
+        cx="60"
+        cy="60"
+        r={r}
+        className={"cc-ring-fill " + (warm ? "cc-ring-warm" : "cc-ring-cold")}
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - Math.max(0, Math.min(1, fraction)))}
+        transform="rotate(-90 60 60)"
+      />
+    </svg>
+  );
+}
+
+function clockTime(at: number): string {
+  return new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function CachePanel({ threadId }: { threadId: string }) {
+  const { data, offset, call, error } = useClock(threadId);
+  const sdk = useSdk();
+  const pluginId = experimental_usePluginId();
+  const { values } = useSettings();
+  const live = Boolean(data && data.supported && !data.running && data.lastReplyAt !== null);
+  const now = useNow(offset, true);
+  const [saving, setSaving] = useState(false);
+  if (error && !data) return <div className="cc-panel"><p className="cc-line cc-warn">{error}</p></div>;
+  if (!data) return <div className="cc-panel"><p className="cc-line">Loading the cache clock…</p></div>;
+  if (!data.supported) {
+    return (
+      <div className="cc-panel">
+        <h3 className="cc-title">Cache clock</h3>
+        <p className="cc-line">The cache clock follows Claude Code threads. This thread runs on {data.providerId}.</p>
+      </div>
+    );
+  }
+  const left = remainingMs(data.expiresAt, now);
+  const warm = live && left > 0;
+  const fraction = live ? fractionLeft(data.expiresAt, data.ttlMinutes, now) : 0;
+  const kw = data.keepWarm;
+  const keeping = Boolean(kw?.enabled);
+  const next = nextPingAt(data.lastReplyAt, data.ttlMinutes);
+  const log = [...(kw?.log ?? [])].reverse();
+  const ttl = String((values as Record<string, unknown> | undefined)?.ttlMinutes ?? data.ttlMinutes);
+  const setTtl = async (v: string) => {
+    setSaving(true);
+    try {
+      await sdk.plugins.updateSettings({ pluginId, values: { ttlMinutes: v } });
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="cc-panel">
+      <div className="cc-card cc-hero">
+        <div className="cc-ring-wrap">
+          <Ring fraction={fraction} warm={warm} />
+          <div className="cc-ring-label">
+            <strong>{data.running ? "Working" : !live ? "No reply yet" : warm ? formatCountdown(left) : "Cold"}</strong>
+            <span>{data.running ? "clock starts after the reply" : warm ? "until cold" : live ? "cache expired" : ""}</span>
+          </div>
+        </div>
+        <div className="cc-hero-text">
+          <span className={"cc-state " + (warm ? "cc-green" : "cc-amber")}>
+            <ClockIcon />
+            {data.running ? "Turn running" : warm ? "Cache warm" : "Cache cold"}
+          </span>
+          <p className="cc-line">
+            {formatTokens(data.usedTokens)} tokens in context. {ttlLabel(data.ttlMinutes)} cache, counted from the last
+            reply.
+          </p>
+          <p className="cc-line cc-muted">
+            {data.running
+              ? "The countdown starts when this reply finishes."
+              : warm
+                ? "Reply now and the cached part costs about a tenth of the full price."
+                : "The next message re-reads the whole chat at full price."}
+          </p>
+        </div>
+      </div>
+
+      <div className="cc-card">
+        <div className="cc-row">
+          <strong className="cc-h">Keep warm</strong>
+          <span className="cc-spacer" />
+          <button className={"cc-btn" + (keeping ? "" : " cc-primary")} onClick={() => void call("setKeepWarm", { on: !keeping })}>
+            {keeping ? "Stop keeping warm" : "Keep warm"}
+          </button>
+        </div>
+        {keeping && kw ? (
+          <p className="cc-line cc-blue">
+            {kw.pings === 0 ? "First ping" : `Ping ${kw.pings} sent`} ·{" "}
+            {next !== null && next > now ? `next in ${formatCountdown(next - now)}` : "due when the turn closes"} · stops after{" "}
+            {data.keepWarmMaxHours} hours or on your next message
+          </p>
+        ) : (
+          <p className="cc-line cc-muted">
+            Sends a short ping message, visible in the chat, about two minutes before the cache goes cold.
+          </p>
+        )}
+        {log.length > 0 && (
+          <ol className="cc-log">
+            {log.slice(0, 12).map((e) => (
+              <li key={e.at}>
+                <span>{clockTime(e.at)}</span>
+                <span>ping read {formatTokens(e.cachedTokens)} cached tokens</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      <div className="cc-card">
+        <strong className="cc-h">Hand off</strong>
+        <HandoffBody threadId={threadId} data={data} call={call} />
+      </div>
+
+      <div className="cc-card">
+        <div className="cc-row">
+          <strong className="cc-h">Cache lifetime</strong>
+          <span className="cc-spacer" />
+          <div className="cc-seg" role="radiogroup" aria-label="Cache lifetime">
+            {[
+              ["60", "1 hour"],
+              ["5", "5 minutes"],
+            ].map(([v, label]) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={ttl === v}
+                className={"cc-seg-btn" + (ttl === v ? " cc-seg-on" : "")}
+                disabled={saving}
+                onClick={() => void setTtl(v)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="cc-line cc-muted">1 hour on a Claude subscription, 5 minutes with an API key.</p>
+      </div>
+    </div>
+  );
+}
+
+/** Opens this plugin's right-panel tab when the Mods hub asks, in the asking window only. */
+function windowId(): string {
+  const w = window as unknown as { __nbmWindowId?: string };
+  if (!w.__nbmWindowId) w.__nbmWindowId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return w.__nbmWindowId;
+}
+function PanelOpener() {
+  const nav = useBbNavigate();
+  const composer = useComposer();
+  const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : null;
+  useRealtime("open-panel", (payload: unknown) => {
+    const p = payload as { threadId?: string; windowId?: string } | null;
+    if (!p || p.windowId !== windowId() || !threadId || p.threadId !== threadId) return;
+    nav.openThreadPanel({ actionId: "clock", title: "Cache clock" });
+  });
+  return null;
+}
+
 export default definePluginApp((app) => {
   app.composer.customize({
     id: "cache-clock",
     scopes: ["thread"],
-    banners: [{ id: "clock", chrome: "bare", component: CacheBanner }],
+    banners: [{ id: "clock", chrome: "bare", component: CacheBanner }, { id: "panel-opener", chrome: "bare", component: PanelOpener }],
     plusMenu: [
       {
         id: "handoff",
@@ -355,6 +527,13 @@ export default definePluginApp((app) => {
       },
     ],
     experimental_popups: [{ id: POPUP_ID, label: "Hand off to a new thread", component: HandoffPopup }],
+  });
+  app.slots.threadPanelAction({
+    id: "clock",
+    title: "Cache clock",
+    icon: "Timer",
+    layout: "padded",
+    component: ({ threadId }) => <CachePanel threadId={threadId} />,
   });
   app.composer.experimental_registerCommand({
     id: "handoff",

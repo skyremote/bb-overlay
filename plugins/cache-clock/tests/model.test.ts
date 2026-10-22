@@ -75,3 +75,15 @@ describe("handoff extraction", () => {
     expect(isPingText("hello")).toBe(false);
   });
 });
+
+describe("appendPingLog", () => {
+  it("appends newest last and caps at 50", async () => {
+    const { appendPingLog } = await import("../model");
+    let log = appendPingLog(undefined, 1, 100);
+    expect(log).toEqual([{ at: 1, cachedTokens: 100 }]);
+    for (let i = 2; i <= 60; i++) log = appendPingLog(log, i, null);
+    expect(log).toHaveLength(50);
+    expect(log[0].at).toBe(11);
+    expect(log.at(-1)).toEqual({ at: 60, cachedTokens: null });
+  });
+});

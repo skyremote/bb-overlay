@@ -202,3 +202,25 @@
   .hd-lead-alert{animation:none !important}
   .hd-lmode-working .hd-fa{opacity:1}.hd-lmode-working .hd-fb,.hd-lmode-working .hd-fc{opacity:0}
 }
+
+/* Mods hub tab */
+.hd-hub{display:flex;flex-direction:column;gap:10px;font-size:13px}
+.hd-hub-intro,.hd-hub-foot,.hd-hub-note{margin:0;font-size:12px;opacity:.6}
+.hd-hub-note{opacity:.85;color:#b45309}
+.hd-hub-row{display:flex;align-items:center;gap:12px;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:10px;padding:10px 12px;background:color-mix(in srgb,currentColor 3%,transparent)}
+.hd-hub-glyph{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center}
+.hd-hub-glyph svg{width:22px;height:22px}
+.hd-hub-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.hd-hub-line{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.75;font-variant-numeric:tabular-nums}
+.hd-hub-dot{width:7px;height:7px;border-radius:50%;background:color-mix(in srgb,currentColor 35%,transparent);flex:none}
+.hd-hub-on .hd-hub-dot{background:#16a34a}
+.hd-hub-warm .hd-hub-dot{background:#16a34a}
+.hd-hub-cold .hd-hub-dot{background:#d97706}
+.hd-hub-missing{opacity:.55}
+.hd-hub-open{font:inherit;font-size:12px;padding:4px 12px;border-radius:7px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:transparent;color:inherit;cursor:pointer}
+.hd-hub-open:disabled{opacity:.4;cursor:default}
+.hd-hub-switch{position:relative;width:38px;height:22px;flex:none;border-radius:999px;border:0;cursor:pointer;background:color-mix(in srgb,currentColor 18%,transparent)}
+.hd-hub-switch i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.hd-hub-switch-on{background:#d9534f}
+.hd-hub-switch-on i{transform:translateX(16px)}
+@media (prefers-reduced-motion:reduce){.hd-hub-switch i{transition:none}}

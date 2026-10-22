@@ -11,6 +11,7 @@ import { z } from "zod";
 import {
   HANDOFF_REQUEST,
   PING_TEXT,
+  appendPingLog,
   TICK_MS,
   decideKeepWarm,
   expiresAt,
@@ -36,6 +37,10 @@ export const rpcContract = defineRpcContract({
   },
   requestHandoff: { input: z.object({ threadId: threadIdSchema }), output: statusSchema },
   clearHandoff: { input: z.object({ threadId: threadIdSchema }), output: statusSchema },
+  open_panel: {
+    input: z.object({ threadId: z.string().regex(/^thr_[a-zA-Z0-9_-]+$/), windowId: z.string().min(4).max(64) }),
+    output: z.object({ ok: z.boolean() }),
+  },
 });
 
 /** Realtime channel: payload { threadId }. The banner refetches on it. */
@@ -167,12 +172,14 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function sendPing(threadId: string, keepWarm: KeepWarm, replyAt: number | null) {
     const tokens = await usedTokens(threadId);
+    const at = Date.now();
     await writeKeepWarm(threadId, {
       ...keepWarm,
       pings: keepWarm.pings + 1,
-      lastPingAt: Date.now(),
+      lastPingAt: at,
       lastPingForReplyAt: replyAt,
       lastPingCachedTokens: tokens,
+      log: appendPingLog(keepWarm.log, at, tokens),
     });
     await bb.sdk.threads.send({
       threadId,
@@ -282,6 +289,10 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   bb.rpc.register(rpcContract, {
+    open_panel: async ({ threadId, windowId }) => {
+      bb.realtime.publish("open-panel", { threadId, windowId });
+      return { ok: true };
+    },
     status: ({ threadId }) => status(threadId),
     setKeepWarm: async ({ threadId, on }) => {
       if (on) {

@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-navaigate-workspace",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "type": "module",
   "engines": {
     "bb": ">=0.44",

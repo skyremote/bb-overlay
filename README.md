@@ -43,6 +43,8 @@ Four small plugins that change how bb looks and behaves while you work. Each is 
 - **Reflect** (`reflect`): when you tell an agent a lasting rule ("from now on never use hashtags in my posts"), a card asks whether to save it, with one press, to your CLAUDE.md, your own voice or style guide, or your notes tool. No AI, so it costs nothing to run.
 - **Screen Share** (`screen-share`): type `/screenshare` before you share your screen or record, and every name, email, phone number and amount in bb turns into a grey bar, on every screen at once, your phone included. The agent still sees the real text.
 
+Each mod also has its own tab in the right panel: press **+** beside your tabs and pick **Helper Desk**, **Cache clock**, **Reflect**, **Screen share** or **Mods**, a hub that shows every mod's status with a switch for Screen share and an Open button for the rest.
+
 Inspired by Ben AI's Claude Code mods video. The pixel bots are original NavAIgate designs. A related tip for Superwhisper users is in [docs/superwhisper-hook.md](docs/superwhisper-hook.md).
 
 ## Install
@@ -140,6 +142,15 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.7.1
+
+- Every mod now has its own tab in the right panel's **+** menu, next to Helper Desk.
+- **Screen share** tab: a big on/off switch, a preview of what gets hidden, and the people and company lists you can edit.
+- **Cache clock** tab: a countdown ring, how much is cached, Keep warm with a log of each ping, the cache lifetime switch, and Hand off.
+- **Reflect** tab: the rule waiting to be saved, a list of the rules you've saved and where they went, a "Test a sentence" box, and where each save button writes.
+- **Mods** hub (part of Helper Desk): one row per mod with its live status, a switch for Screen share and an Open button for each tab.
+- Cache clock and Reflect have their own icons on their tabs instead of a lightning bolt.
 
 ## What's new in 1.7.0
 

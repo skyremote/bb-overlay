@@ -59,3 +59,28 @@ html[data-screen-share="on"] ::selection {
     display: none;
   }
 }
+
+/* Right-panel tab */
+.ssm-panel{display:flex;flex-direction:column;gap:12px;font-size:13px}
+.ssm-card{border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:10px;padding:12px 14px;background:color-mix(in srgb,currentColor 3%,transparent);display:flex;flex-direction:column;gap:8px}
+.ssm-hero{flex-direction:row;align-items:center;gap:14px}
+.ssm-hero.ssm-on{border-color:color-mix(in srgb,#d9534f 45%,transparent);background:color-mix(in srgb,#d9534f 6%,transparent)}
+.ssm-hero-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ssm-hero-text strong{font-size:14px}
+.ssm-hero-text span{opacity:.75}
+.ssm-hint{font-size:11.5px;opacity:.55}
+.ssm-h{font-size:13px}
+.ssm-switch{position:relative;width:52px;height:30px;flex:none;border-radius:999px;border:0;cursor:pointer;background:color-mix(in srgb,currentColor 18%,transparent);transition:background .15s}
+.ssm-switch-on{background:#d9534f}
+.ssm-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.ssm-switch-on .ssm-knob{transform:translateX(22px)}
+.ssm-preview{margin:0;line-height:1.7}
+.ssm-bar{color:transparent;background:rgba(128,128,128,.42);border-radius:2px}
+.ssm-would{text-decoration:underline dotted}
+.ssm-input{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:transparent;color:inherit;resize:vertical}
+.ssm-check{display:flex;gap:8px;align-items:flex-start;font-size:12.5px}
+.ssm-row{display:flex;gap:10px;align-items:center}
+.ssm-btn{font:inherit;font-size:12px;padding:4px 10px;border-radius:7px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:transparent;color:inherit;cursor:pointer}
+.ssm-primary{background:#1f2937;color:#fff;border-color:#1f2937}
+.ssm-btn:disabled{opacity:.45;cursor:default}
+@media (prefers-reduced-motion:reduce){.ssm-switch,.ssm-knob{transition:none}}

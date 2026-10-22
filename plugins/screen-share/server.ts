@@ -16,6 +16,10 @@ export const rpcContract = defineRpcContract({
     input: z.object({ enabled: z.boolean(), source: z.string().max(40).optional() }),
     output: stateSchema,
   },
+  open_panel: {
+    input: z.object({ threadId: z.string().regex(/^thr_[a-zA-Z0-9_-]+$/), windowId: z.string().min(4).max(64) }),
+    output: z.object({ ok: z.boolean() }),
+  },
 });
 
 /** Realtime channel every client listens on; payload is the full state. */
@@ -75,6 +79,10 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
+    open_panel: async ({ threadId, windowId }) => {
+      bb.realtime.publish("open-panel", { threadId, windowId });
+      return { ok: true };
+    },
     state_get: () => read(),
     state_set: ({ enabled, source }) => write(enabled, source ?? "app"),
   });

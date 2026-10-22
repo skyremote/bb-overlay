@@ -15,3 +15,21 @@
 .rf-ghost{background:transparent;border-color:transparent;color:var(--muted-foreground)}
 @keyframes rf-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.rf-card{animation:none}}
+
+/* Right-panel tab */
+.rf-panel{display:flex;flex-direction:column;gap:12px;font-size:13px}
+.rf-pcard{border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:10px;padding:12px 14px;background:color-mix(in srgb,currentColor 3%,transparent);display:flex;flex-direction:column;gap:8px}
+.rf-prow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rf-h{font-size:13px}
+.rf-muted{opacity:.6;font-size:12px;margin:0}
+.rf-ok{font-size:12px;color:#15803d}
+.rf-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rf-item{border-left:2px solid color-mix(in srgb,#d9534f 55%,transparent);padding-left:10px}
+.rf-item-rule{margin:0;font-size:13px}
+.rf-item-meta{margin:2px 0 0;font-size:11.5px;opacity:.6}
+.rf-link{font:inherit;background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer}
+.rf-input{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:transparent;color:inherit;resize:vertical}
+.rf-paths{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;margin:0;font-size:12px}
+.rf-paths dt{opacity:.6}
+.rf-paths dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.rf-paths code{font-size:11.5px}

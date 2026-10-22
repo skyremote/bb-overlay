@@ -10,7 +10,7 @@
     "name": "Cache Clock",
     "description": "Countdown until a Claude Code thread's prompt cache goes cold, Keep warm, and a manual handoff to a new thread.",
     "branding": {
-      "icon": "Timer"
+      "icon": "./assets/icon.svg"
     },
     "server": "./server.ts",
     "app": "./app.tsx",

@@ -30,6 +30,17 @@ import {
   type HistoryBatch,
   type LiveVisibility,
 } from "./model";
+import { z } from "zod";
+import {
+  cacheClockLine,
+  deskLine,
+  reflectLine,
+  screenShareLine,
+  type CacheClockStatus,
+  type HubLine,
+  type ReflectStatus,
+  type ScreenShareStatus,
+} from "./hubmodel";
 import "./desk.css";
 
 /** Agent colours, in launch order: orange, blue, green, pink, red, purple, teal, amber. */
@@ -761,6 +772,177 @@ function HeaderButton({ threadId, isCompactViewport }: { threadId: string; isCom
   );
 }
 
+// ---------- Mods hub tab ----------
+
+const hubSchemas = {
+  screen: z.object({ enabled: z.boolean() }).passthrough(),
+  clock: z
+    .object({
+      supported: z.boolean(),
+      running: z.boolean(),
+      lastReplyAt: z.number().nullable(),
+      expiresAt: z.number().nullable(),
+      now: z.number(),
+      keepWarm: z.object({ enabled: z.boolean() }).passthrough().nullable(),
+    })
+    .passthrough(),
+  reflect: z.object({ today: z.number(), total: z.number() }).passthrough(),
+  ok: z.object({ ok: z.boolean() }),
+};
+
+function hubWindowId(): string {
+  const w = window as unknown as { __nbmWindowId?: string };
+  if (!w.__nbmWindowId) w.__nbmWindowId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return w.__nbmWindowId;
+}
+
+function ModGlyph({ kind }: { kind: "screen" | "clock" | "reflect" }) {
+  if (kind === "screen")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="4" width="16" height="10" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" /><rect x="5" y="7" width="6" height="1.8" fill="currentColor" opacity=".5" /><rect x="5" y="10" width="9" height="1.8" fill="currentColor" opacity=".5" /><path d="M7 17h6" stroke="currentColor" strokeWidth="1.5" /></svg>
+    );
+  if (kind === "clock")
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M10 6v4l2.6 1.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+    );
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3h10v14l-5-3.2L5 17z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M7.5 8.5l1.8 1.8 3.4-3.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+  );
+}
+
+function ModsHub({ threadId }: { threadId: string }) {
+  const sdk = useSdk();
+  const nav = useBbNavigate();
+  const { data } = useDesk(threadId);
+  const [screen, setScreen] = useState<ScreenShareStatus | null>(null);
+  const [clock, setClock] = useState<{ s: CacheClockStatus; offset: number } | null>(null);
+  const [reflect, setReflect] = useState<ReflectStatus | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [, tick] = useState(0);
+
+  const load = useCallback(() => {
+    sdk.plugins
+      .callRpc({ pluginId: "screen-share", method: "state_get", input: null, outputSchema: hubSchemas.screen })
+      .then((r) => setScreen({ enabled: r.enabled }), () => setScreen(null));
+    sdk.plugins
+      .callRpc({ pluginId: "cache-clock", method: "status", input: { threadId }, outputSchema: hubSchemas.clock })
+      .then((r) => setClock({ s: r, offset: r.now - Date.now() }), () => setClock(null));
+    sdk.plugins
+      .callRpc({ pluginId: "reflect", method: "saved", input: { limit: 1 }, outputSchema: hubSchemas.reflect })
+      .then((r) => setReflect({ today: r.today, total: r.total }), () => setReflect(null));
+  }, [sdk, threadId]);
+
+  useEffect(() => {
+    load();
+    const slow = setInterval(load, 15_000);
+    const fast = setInterval(() => tick((n) => n + 1), 1000);
+    return () => {
+      clearInterval(slow);
+      clearInterval(fast);
+    };
+  }, [load]);
+
+  const open = async (pluginId: string, label: string) => {
+    setNote(null);
+    try {
+      await sdk.plugins.callRpc({
+        pluginId,
+        method: "open_panel",
+        input: { threadId, windowId: hubWindowId() },
+        outputSchema: hubSchemas.ok,
+      });
+    } catch {
+      setNote(`Could not reach ${label}. Open it from the + in this panel, under Actions.`);
+    }
+  };
+  const flipScreen = async () => {
+    try {
+      const r = await sdk.plugins.callRpc({
+        pluginId: "screen-share",
+        method: "state_set",
+        input: { enabled: !(screen?.enabled ?? false), source: "hub" },
+        outputSchema: hubSchemas.screen,
+      });
+      setScreen({ enabled: r.enabled });
+    } catch {
+      setNote("Screen share is not installed or is switched off.");
+    }
+  };
+
+  const running = data?.agents.filter((a) => a.state === "running").length ?? 0;
+  const leadMode: LeadMode = data?.lead?.state === "working" ? "working" : data?.lead?.state === "needs-you" ? "needs" : "waiting";
+  const rows: { key: string; name: string; line: HubLine; glyph: ReactElement; onOpen: () => void; extra?: ReactElement }[] = [
+    {
+      key: "desk",
+      name: "Helper Desk",
+      line: deskLine(running, data?.lead?.state === "working"),
+      glyph: <LeadBot mode={leadMode} size={26} />,
+      onOpen: () => {
+        userOpened.add(threadId);
+        requestTab(threadId, running > 0 ? "live" : "history");
+        nav.openThreadPanel({ actionId: "desk", title: "Helper Desk" });
+      },
+    },
+    {
+      key: "screen",
+      name: "Screen share",
+      line: screenShareLine(screen),
+      glyph: <ModGlyph kind="screen" />,
+      onOpen: () => void open("screen-share", "Screen share"),
+      extra: screen ? (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={screen.enabled}
+          aria-label="Screen-share mode"
+          className={"hd-hub-switch" + (screen.enabled ? " hd-hub-switch-on" : "")}
+          onClick={() => void flipScreen()}
+        >
+          <i />
+        </button>
+      ) : undefined,
+    },
+    {
+      key: "clock",
+      name: "Cache clock",
+      line: cacheClockLine(clock?.s ?? null, Date.now(), clock?.offset ?? 0),
+      glyph: <ModGlyph kind="clock" />,
+      onOpen: () => void open("cache-clock", "Cache clock"),
+    },
+    {
+      key: "reflect",
+      name: "Reflect",
+      line: reflectLine(reflect),
+      glyph: <ModGlyph kind="reflect" />,
+      onOpen: () => void open("reflect", "Reflect"),
+    },
+  ];
+
+  return (
+    <div className="hd-hub">
+      <p className="hd-hub-intro">Your mods for this thread. Open one to see its full tab.</p>
+      {rows.map((r) => (
+        <div key={r.key} className={"hd-hub-row hd-hub-" + r.line.tone}>
+          <span className="hd-hub-glyph">{r.glyph}</span>
+          <span className="hd-hub-text">
+            <strong>{r.name}</strong>
+            <span className="hd-hub-line">
+              <i className="hd-hub-dot" aria-hidden="true" />
+              {r.line.text}
+            </span>
+          </span>
+          {r.extra}
+          <button type="button" className="hd-hub-open" disabled={r.line.tone === "missing"} onClick={r.onOpen}>
+            Open
+          </button>
+        </div>
+      ))}
+      {note && <p className="hd-hub-note">{note}</p>}
+      <p className="hd-hub-foot">Switch a whole mod off with bb plugins disable, then its id.</p>
+    </div>
+  );
+}
+
 export default definePluginApp((app) => {
   app.slots.threadPanelAction({
     id: "desk",
@@ -772,6 +954,13 @@ export default definePluginApp((app) => {
       userOpened.add(threadId);
       openPanel({ title: "Helper Desk" });
     },
+  });
+  app.slots.threadPanelAction({
+    id: "mods",
+    title: "Mods",
+    icon: "LayoutGrid",
+    layout: "padded",
+    component: ({ threadId }) => <ModsHub threadId={threadId} />,
   });
   app.slots.experimental_threadHeaderAction({ id: "desk-open", title: "Helper Desk", component: HeaderButton });
   app.composer.customize({

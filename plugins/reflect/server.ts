@@ -11,6 +11,7 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { detectRule, normaliseRule } from "./detector";
 import { DEFAULT_VOICE_SECTION, expandHome, Writers, type SaveResult } from "./writers";
+import { appendLog, countToday, newestFirst, readLog, savedEntrySchema } from "./savedlog";
 
 const threadIdSchema = z.string().regex(/^thr_[a-zA-Z0-9_-]+$/);
 
@@ -52,11 +53,39 @@ export const rpcContract = defineRpcContract({
     input: z.object({ threadId: threadIdSchema, id: z.string().min(1).max(64) }),
     output: z.object({ dismissed: z.boolean() }),
   },
+  saved: {
+    input: z.object({ limit: z.number().int().min(1).max(200).optional() }),
+    output: z.object({ entries: z.array(savedEntrySchema), today: z.number(), total: z.number() }),
+  },
+  test: {
+    input: z.object({ text: z.string().max(4000) }),
+    output: z.object({
+      rule: z.string().nullable(),
+      topic: z.enum(["writing", "general"]).nullable(),
+    }),
+  },
+  paths: {
+    input: z.null(),
+    output: z.object({
+      enabled: z.boolean(),
+      voice: z.string(),
+      voiceSection: z.string(),
+      commitVoice: z.boolean(),
+      pushVoice: z.boolean(),
+      claude: z.string(),
+      brain: z.string(),
+    }),
+  },
+  open_panel: {
+    input: z.object({ threadId: z.string().regex(/^thr_[a-zA-Z0-9_-]+$/), windowId: z.string().min(4).max(64) }),
+    output: z.object({ ok: z.boolean() }),
+  },
 });
 
 export const CHANGED = "reflect-changed";
 const pendingKey = (threadId: string) => `pending:${threadId}`;
 const BRAIN_SAVED_KEY = "brain-saved";
+const SAVED_LOG_KEY = "saved-log";
 
 export default async function plugin(bb: BbPluginApi) {
   const home = homedir();
@@ -157,11 +186,21 @@ export default async function plugin(bb: BbPluginApi) {
       if (result.status === "saved") await bb.storage.kv.set(BRAIN_SAVED_KEY, [...saved, key].slice(-500));
     }
     await setPending(threadId, null);
+    const log = readLog(await bb.storage.kv.get<unknown>(SAVED_LOG_KEY));
+    await bb.storage.kv.set(
+      SAVED_LOG_KEY,
+      appendLog(log, { rule, target: result.target, status: result.status, where: result.where, threadId, at: Date.now() }),
+    );
+    bb.realtime.publish(CHANGED, { threadId, saved: true });
     bb.log.info(`rule ${result.status} to ${result.target}: ${rule}`);
     return result;
   }
 
   bb.rpc.register(rpcContract, {
+    open_panel: async ({ threadId, windowId }) => {
+      bb.realtime.publish("open-panel", { threadId, windowId });
+      return { ok: true };
+    },
     pending: async ({ threadId }) => {
       const s = await settings.get();
       return {
@@ -175,6 +214,26 @@ export default async function plugin(bb: BbPluginApi) {
       if (!candidate || candidate.id !== id) return { dismissed: false };
       await setPending(threadId, null);
       return { dismissed: true };
+    },
+    saved: async ({ limit }) => {
+      const log = readLog(await bb.storage.kv.get<unknown>(SAVED_LOG_KEY));
+      return { entries: newestFirst(log, limit ?? 50), today: countToday(log, Date.now()), total: log.length };
+    },
+    test: async ({ text }) => {
+      const hit = detectRule(text);
+      return { rule: hit?.rule ?? null, topic: hit?.topic ?? null };
+    },
+    paths: async () => {
+      const s = await settings.get();
+      return {
+        enabled: s.enabled,
+        voice: s.voiceProfilePath,
+        voiceSection: s.voiceSection,
+        commitVoice: s.commitVoice,
+        pushVoice: s.pushVoice,
+        claude: s.claudeMdPath,
+        brain: s.brainCommand,
+      };
     },
   });
 

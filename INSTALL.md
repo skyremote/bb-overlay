@@ -18,7 +18,7 @@ About 15 minutes. No coding needed: bb's agent does the technical part for you.
    curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
    ```
 
-4. Wait for the checklist at the end. It installs the workspace, the Kanban board, the four mods (Helper Desk, Cache Clock, Reflect and Screen Share, on bb 0.46 or later), folders (Projects & Sections), the Agent Board and bb's Tasks, and turns on the NavAIgate theme and rail. Don't want the mods? Add `-s -- --no-mods` after `bash`, or switch any one off later with `bb plugin disable <id>`.
+4. Wait for the checklist at the end. It installs the workspace, the Kanban board, the four mods (Helper Desk, Cache Clock, Reflect and Screen Share, on bb 0.46 or later), folders (Projects & Sections), the Agent Board and bb's Tasks, and turns on the NavAIgate theme and rail. Don't want the mods? Add `-s -- --no-mods` after `bash`, or switch any one off later with `bb plugin disable <id>`. Each mod has a tab under the **+** in the right panel of any chat.
 5. Reload bb with **Cmd-R** (Ctrl-R on Linux).
 
 **Read it first.** You can read the script before running it: [install.sh](install.sh). To see what it would do without changing anything, add `-s -- --dry-run` after `bash`. It's safe to run again any time to update everything, and it never removes anything.

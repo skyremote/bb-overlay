@@ -10,7 +10,7 @@
     "name": "Reflect",
     "description": "Spots a lasting rule in a message you send and offers to save it to your CLAUDE.md, your voice profile or your own notes tool.",
     "branding": {
-      "icon": "BookmarkPlus"
+      "icon": "./assets/icon.svg"
     },
     "server": "./server.ts",
     "app": "./app.tsx",
