@@ -3,6 +3,8 @@
 #
 # Installs everything BB Overlay uses, in one go:
 #   - NavAIgate Workspace and Kanban, from this repository
+#   - the four mods, from this repository (bb 0.46 or later): Helper Desk,
+#     Cache Clock, Reflect and Screen Share
 #   - Projects & Sections (project-folders) by VKirill, MIT, from its own repository
 #   - Agent Board by aaronphifer, MIT, from its own repository
 #   - bb's built-in Tasks plugin (opt-in in bb, so it is installed if missing)
@@ -17,10 +19,12 @@
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
-#   bash install.sh [--dry-run] [--no-look] [--pin-folders] [--help]
+#   bash install.sh [--dry-run] [--no-look] [--no-mods] [--pin-folders] [--help]
 #
 #   --dry-run       print every command, change nothing
 #   --no-look       leave the theme and the sidebar list as they are
+#   --no-mods       skip the four mods (Helper Desk, Cache Clock, Reflect,
+#                   Screen Share); ones you already have are left as they are
 #   --pin-folders   switch Projects & Sections to 0.6.19 without asking
 #                   (your folders are kept); see MAINTAINERS.md
 
@@ -30,6 +34,7 @@ EDITION="BB Overlay"
 REPO_URL="https://github.com/skyremote/bb-overlay.git"
 REPO_REF="main"
 MIN_BB="0.45"
+MIN_BB_MODS="0.46"
 
 # Either NavAIgate edition counts as ours: the public BB Overlay and the
 # members' edition ship the same plugins, so a copy from the other one is
@@ -56,15 +61,17 @@ RAIL_ID="${WS_ID}/rail"
 
 DRY_RUN=0
 SET_LOOK=1
+SET_MODS=1
 PIN_FOLDERS=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --no-look) SET_LOOK=0 ;;
+    --no-mods) SET_MODS=0 ;;
     --pin-folders) PIN_FOLDERS=1 ;;
     -h|--help)
       if [ -f "$0" ]; then awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"
-      else echo "Options: --dry-run, --no-look, --pin-folders. Run with bash -s -- <option> after the pipe."; fi
+      else echo "Options: --dry-run, --no-look, --no-mods, --pin-folders. Run with bash -s -- <option> after the pipe."; fi
       exit 0 ;;
     *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
@@ -241,6 +248,20 @@ ensure() {
 step "Installing $EDITION"
 ensure "$WS_ID" "NavAIgate Workspace" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin workspace
 ensure "kanban" "Kanban" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin kanban
+
+step "Installing the mods"
+if [ "$SET_MODS" -eq 0 ]; then
+  say "Skipped (--no-mods)."
+  OUTCOME+=("[skipped]    Mods: Helper Desk, Cache Clock, Reflect, Screen Share (--no-mods)")
+elif version_lt "$BB_VERSION" "$MIN_BB_MODS"; then
+  say "The mods need bb $MIN_BB_MODS or later; this is bb $BB_VERSION. Skipping them for now."
+  OUTCOME+=("[skipped]    Mods: need bb $MIN_BB_MODS or later, then run this again")
+else
+  ensure "helper-desk" "Helper Desk (sub-agents at a glance)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin helper-desk
+  ensure "cache-clock" "Cache Clock (cache countdown, Keep warm, Hand off)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin cache-clock
+  ensure "reflect" "Reflect (save the rules you give your agents)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin reflect
+  ensure "screen-share" "Screen Share (hide names and amounts on screen)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin screen-share
+fi
 
 step "Installing the companions (made by other people, MIT, from their own repositories)"
 FALLBACK="$PF_FALLBACK" ensure "project-folders" "Projects & Sections by VKirill (folders, Move to folder)" "$PF_MATCH" "$PF_SOURCE"

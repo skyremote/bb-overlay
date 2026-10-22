@@ -1,0 +1,17 @@
+.rf-card{font-family:var(--font-sans,system-ui);font-size:13px;color:var(--foreground);background:var(--card,var(--background));border:1px solid var(--border);border-radius:10px;padding:10px 12px 11px;box-shadow:0 1px 2px rgba(0,0,0,.04);margin-bottom:6px;animation:rf-in .18s ease-out}
+.rf-card *{box-sizing:border-box}
+.rf-head{display:flex;align-items:center;gap:8px}
+.rf-dot{width:6px;height:6px;border-radius:50%;background:var(--destructive,#e5484d);flex:none}
+.rf-title{font-weight:600;font-size:13px;flex:1;min-width:0}
+.rf-tag{font-size:11px;color:var(--muted-foreground)}
+.rf-rule{margin:4px 0 9px 14px;font-size:13px;line-height:1.45;color:var(--foreground);overflow-wrap:anywhere}
+.rf-actions{display:flex;flex-wrap:wrap;gap:6px;margin-left:14px}
+.rf-btn{cursor:pointer;font:inherit;font-size:12px;line-height:1;border:1px solid var(--border);background:var(--muted,transparent);color:var(--foreground);border-radius:6px;padding:7px 10px}
+.rf-btn:hover:not(:disabled){background:var(--accent)}
+.rf-btn:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.rf-btn:disabled{opacity:.6;cursor:default}
+.rf-primary{background:var(--foreground);color:var(--background);border-color:var(--foreground)}
+.rf-primary:hover:not(:disabled){background:var(--foreground);opacity:.88}
+.rf-ghost{background:transparent;border-color:transparent;color:var(--muted-foreground)}
+@keyframes rf-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.rf-card{animation:none}}

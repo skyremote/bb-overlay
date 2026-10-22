@@ -1,0 +1,150 @@
+/* Cache Clock banner, modelled on the reference: a light card above the
+   composer, green clock and countdown, a thin draining bar, small quiet
+   buttons on the right, grey explanatory lines underneath. */
+.cc-bar {
+  --cc-green: #1f9d55;
+  --cc-amber: #b7791f;
+  --cc-blue: #2b6cb0;
+  --cc-line: color-mix(in srgb, currentColor 62%, transparent);
+  --cc-faint: color-mix(in srgb, currentColor 45%, transparent);
+  --cc-border: color-mix(in srgb, currentColor 12%, transparent);
+  --cc-btn: color-mix(in srgb, currentColor 7%, transparent);
+  --cc-btn-hover: color-mix(in srgb, currentColor 13%, transparent);
+  border: 1px solid var(--cc-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  padding: 9px 12px 8px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.cc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+.cc-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.cc-green { color: var(--cc-green); }
+.cc-amber { color: var(--cc-amber); }
+.cc-blue { color: var(--cc-blue); }
+.cc-icon { width: 14px; height: 14px; flex: none; }
+.cc-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  margin-left: 2px;
+}
+.cc-track {
+  position: relative;
+  flex: 0 1 220px;
+  min-width: 60px;
+  height: 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--cc-green) 16%, transparent);
+  overflow: hidden;
+}
+.cc-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  background: var(--cc-green);
+  transition: width 1s linear;
+}
+.cc-spacer { flex: 1 1 auto; }
+.cc-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  background: var(--cc-btn);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 9px;
+  line-height: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cc-btn:hover { background: var(--cc-btn-hover); }
+.cc-btn:focus-visible { outline: 2px solid var(--cc-blue); outline-offset: 1px; }
+.cc-quiet { background: transparent; color: var(--cc-line); }
+.cc-primary {
+  background: #1f6f43;
+  color: #ffffff;
+}
+.cc-primary:hover { background: #185a36; }
+.cc-line {
+  margin: 3px 0 0;
+  color: var(--cc-line);
+}
+.cc-line.cc-blue { color: var(--cc-blue); }
+.cc-line.cc-warn { color: var(--cc-amber); }
+.cc-muted { color: var(--cc-faint); }
+.cc-small {
+  font-size: 11px;
+  color: var(--cc-faint);
+}
+.cc-divider {
+  border-top: 1px solid var(--cc-border);
+  margin-top: 8px;
+  padding-top: 6px;
+}
+.cc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.cc-brief {
+  margin: 8px 0 0;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.cc-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  vertical-align: -1px;
+  animation: cc-spin 0.9s linear infinite;
+}
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .cc-spinner { animation: none; }
+  .cc-fill { transition: none; }
+}
+.cc-popup {
+  padding: 12px 14px;
+  max-width: 560px;
+  font-size: 13px;
+  line-height: 1.45;
+  --cc-blue: #2b6cb0;
+  --cc-amber: #b7791f;
+  --cc-line: color-mix(in srgb, currentColor 70%, transparent);
+  --cc-btn: color-mix(in srgb, currentColor 7%, transparent);
+  --cc-btn-hover: color-mix(in srgb, currentColor 13%, transparent);
+}
+.cc-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .cc-row { flex-wrap: wrap; row-gap: 6px; }
+  .cc-track { flex-basis: 100%; order: 5; }
+  .cc-small { display: none; }
+}

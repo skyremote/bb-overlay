@@ -1,0 +1,61 @@
+/* Masks: the text itself is painted transparent over a soft grey bar.
+   ::highlight only supports colour properties, so the bar is a flat tint. */
+::highlight(bb-screen-share) {
+  color: transparent;
+  background-color: rgba(128, 128, 128, 0.42);
+  text-decoration: none;
+  text-shadow: none;
+}
+html[data-screen-share="on"] ::selection {
+  color: transparent;
+}
+
+.ssm-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  padding: 0.45rem 0.6rem 0.45rem 0.75rem;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+.ssm-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: none;
+  border-radius: 999px;
+  background: #d9534f;
+}
+.ssm-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ssm-detail {
+  min-width: 0;
+  flex: 1;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ssm-off {
+  flex: none;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 0.4rem;
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.ssm-off:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+@media (max-width: 520px) {
+  .ssm-detail {
+    display: none;
+  }
+}

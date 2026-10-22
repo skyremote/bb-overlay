@@ -18,7 +18,7 @@ About 15 minutes. No coding needed: bb's agent does the technical part for you.
    curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
    ```
 
-4. Wait for the checklist at the end. It installs the workspace, the Kanban board, folders (Projects & Sections), the Agent Board and bb's Tasks, and turns on the NavAIgate theme and rail.
+4. Wait for the checklist at the end. It installs the workspace, the Kanban board, the four mods (Helper Desk, Cache Clock, Reflect and Screen Share, on bb 0.46 or later), folders (Projects & Sections), the Agent Board and bb's Tasks, and turns on the NavAIgate theme and rail. Don't want the mods? Add `-s -- --no-mods` after `bash`, or switch any one off later with `bb plugin disable <id>`.
 5. Reload bb with **Cmd-R** (Ctrl-R on Linux).
 
 **Read it first.** You can read the script before running it: [install.sh](install.sh). To see what it would do without changing anything, add `-s -- --dry-run` after `bash`. It's safe to run again any time to update everything, and it never removes anything.
@@ -32,6 +32,10 @@ If you'd rather install one plugin at a time, run these in a terminal or a bb ch
 ```sh
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin workspace
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin kanban
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin helper-desk
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin cache-clock
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin reflect
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin screen-share
 bb plugin install git:https://github.com/VKirill/bb-plugin-project-folders.git@v0.6.19
 bb plugin install git:https://github.com/aaronphifer/bb-plugin-agent-board.git@semver:^0.6.1
 bb plugin install tasks

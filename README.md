@@ -16,7 +16,7 @@
 
 ## What's inside
 
-Two bb plugins:
+Two bb plugins, plus four mods:
 
 - **NavAIgate Workspace** (`plugins/workspace`)
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
@@ -34,6 +34,17 @@ Two bb plugins:
   - **The NavAIgate theme**, chat charts and link cards.
 - **Kanban** (`plugins/kanban`): a board where every card is a chat. Agents move their own cards from Backlog to In progress, Review and Done.
 
+### Mods
+
+Four small plugins that change how bb looks and behaves while you work. Each is its own plugin, so you can switch any one off with `bb plugin disable <id>` and back on with `bb plugin enable <id>`. They need bb 0.46 or later.
+
+- **Helper Desk** (`helper-desk`): see what your agents are doing. A side panel shows the lead agent at the top and every sub-agent underneath on its own line, each with a little animated pixel bot in its own colour, its tokens, time, current step and a progress bar. A bar above the chat box tracks the to-do list or the batch of agents. Finished agents clear themselves away after a few seconds, and a History tab keeps every run on the chat you're in.
+- **Cache Clock** (`cache-clock`): a countdown above the chat box until your Claude chat's cache goes cold and the next message costs full price again. **Keep warm** sends a small visible ping just before it expires, and **Hand off** has the chat write a full brief and opens a new chat with it, ready for you to send. Nothing hands off on its own.
+- **Reflect** (`reflect`): when you tell an agent a lasting rule ("from now on never use hashtags in my posts"), a card asks whether to save it, with one press, to your CLAUDE.md, your own voice or style guide, or your notes tool. No AI, so it costs nothing to run.
+- **Screen Share** (`screen-share`): type `/screenshare` before you share your screen or record, and every name, email, phone number and amount in bb turns into a grey bar, on every screen at once, your phone included. The agent still sees the real text.
+
+Inspired by Ben AI's Claude Code mods video. The pixel bots are original NavAIgate designs. A related tip for Superwhisper users is in [docs/superwhisper-hook.md](docs/superwhisper-hook.md).
+
 ## Install
 
 You need bb installed (0.45 or later, on macOS or Linux), open, and signed in to at least one harness (Claude Code, Codex or Cursor). Then run one command in a terminal:
@@ -42,7 +53,7 @@ You need bb installed (0.45 or later, on macOS or Linux), open, and signed in to
 curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
 ```
 
-It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins from this repository, the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme and the NavAIgate rail as the sidebar list, reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
+It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins and the four mods from this repository (`--no-mods` skips the mods), the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme and the NavAIgate rail as the sidebar list, reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
 
 **Read it first.** It's a good habit to read a script before you pipe it into a shell: [install.sh](install.sh). To see every command it would run without changing anything:
 
@@ -59,6 +70,10 @@ Safe to run again: it updates what's already there within its own pin, never rem
 ```sh
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin workspace
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin kanban
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin helper-desk
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin cache-clock
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin reflect
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin screen-share
 bb plugin install git:https://github.com/VKirill/bb-plugin-project-folders.git@v0.6.19
 bb plugin install git:https://github.com/aaronphifer/bb-plugin-agent-board.git@semver:^0.6.1
 bb plugin install tasks
@@ -125,6 +140,14 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.7.0
+
+- Four mods, each its own plugin you can switch off on its own: **Helper Desk**, **Cache Clock**, **Reflect** and **Screen Share** (see [Mods](#mods)). The installer adds them on bb 0.46 or later; `--no-mods` skips them.
+- Helper Desk: the lead agent and its sub-agents as a live tree with animated pixel bots, a to-do or batch bar above the chat box, finished agents that clear away, and a History tab per chat.
+- Cache Clock: the cache countdown, Keep warm, and a hand-off to a new chat that only happens when you press it.
+- Reflect: one-press saving of the rules you give your agents, with no AI involved.
+- Screen Share: `/screenshare` hides names, emails, phone numbers and amounts across bb, on every screen at once.
 
 ## What's new in 1.6.0
 
