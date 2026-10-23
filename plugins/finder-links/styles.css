@@ -1,0 +1,24 @@
+/* Finder Links: paths that exist get a quiet dotted underline; solid on hover. */
+code[data-fl="yes"],
+a[data-fl="fix"] {
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+}
+code[data-fl="yes"]:hover,
+a[data-fl="fix"]:hover {
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
+}
+.fl-flash {
+  outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.fl-error {
+  outline: 2px solid color-mix(in srgb, #c0392b 70%, transparent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}

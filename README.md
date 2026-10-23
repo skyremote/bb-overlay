@@ -16,7 +16,7 @@
 
 ## What's inside
 
-Two bb plugins, plus four mods:
+Two bb plugins, plus five mods:
 
 - **NavAIgate Workspace** (`plugins/workspace`)
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
@@ -36,12 +36,13 @@ Two bb plugins, plus four mods:
 
 ### Mods
 
-Four small plugins that change how bb looks and behaves while you work. Each is its own plugin, so you can switch any one off with `bb plugin disable <id>` and back on with `bb plugin enable <id>`. They need bb 0.46 or later.
+Five small plugins that change how bb looks and behaves while you work. Each is its own plugin, so you can switch any one off with `bb plugin disable <id>` and back on with `bb plugin enable <id>`. They need bb 0.46 or later.
 
 - **Helper Desk** (`helper-desk`): see what your agents are doing. A side panel shows the lead agent at the top and every sub-agent underneath on its own line, each with a little animated pixel bot in its own colour, its tokens, time, current step and a progress bar. A bar above the chat box tracks the to-do list or the batch of agents. Finished agents clear themselves away after a few seconds, and a History tab keeps every run on the chat you're in.
 - **Cache Clock** (`cache-clock`): a countdown above the chat box until your Claude chat's cache goes cold and the next message costs full price again. **Keep warm** sends a small visible ping just before it expires, and **Hand off** has the chat write a full brief and opens a new chat with it, ready for you to send. Nothing hands off on its own.
 - **Reflect** (`reflect`): when you tell an agent a lasting rule ("from now on never use hashtags in my posts"), a card asks whether to save it, with one press, to your CLAUDE.md, your own voice or style guide, or your notes tool. No AI, so it costs nothing to run.
 - **Screen Share** (`screen-share`): type `/screenshare` before you share your screen or record, and every name, email, phone number and amount in bb turns into a grey bar, on every screen at once, your phone included. The agent still sees the real text.
+- **Finder Links** (`finder-links`): click any file or folder path an agent writes in a reply and Finder opens with it selected. Only paths that really exist get the dotted underline, and bb's own file links that point at the wrong folder are repaired so the preview opens the real file. macOS.
 
 Each mod also has its own tab in the right panel: press **+** beside your tabs and pick **Helper Desk**, **Cache clock**, **Reflect**, **Screen share** or **Mods**, a hub that shows every mod's status with a switch for Screen share and an Open button for the rest.
 
@@ -55,7 +56,7 @@ You need bb installed (0.45 or later, on macOS or Linux), open, and signed in to
 curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
 ```
 
-It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins and the four mods from this repository (`--no-mods` skips the mods), the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme and the NavAIgate rail as the sidebar list, reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
+It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins and the five mods from this repository (`--no-mods` skips the mods), the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme and the NavAIgate rail as the sidebar list, reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
 
 **Read it first.** It's a good habit to read a script before you pipe it into a shell: [install.sh](install.sh). To see every command it would run without changing anything:
 

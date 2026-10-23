@@ -3,8 +3,8 @@
 #
 # Installs everything BB Overlay uses, in one go:
 #   - NavAIgate Workspace and Kanban, from this repository
-#   - the four mods, from this repository (bb 0.46 or later): Helper Desk,
-#     Cache Clock, Reflect and Screen Share
+#   - the five mods, from this repository (bb 0.46 or later): Helper Desk,
+#     Cache Clock, Reflect, Screen Share and Finder Links
 #   - Projects & Sections (project-folders) by VKirill, MIT, from its own repository
 #   - Agent Board by aaronphifer, MIT, from its own repository
 #   - bb's built-in Tasks plugin (opt-in in bb, so it is installed if missing)
@@ -23,8 +23,8 @@
 #
 #   --dry-run       print every command, change nothing
 #   --no-look       leave the theme and the sidebar list as they are
-#   --no-mods       skip the four mods (Helper Desk, Cache Clock, Reflect,
-#                   Screen Share); ones you already have are left as they are
+#   --no-mods       skip the five mods (Helper Desk, Cache Clock, Reflect,
+#                   Screen Share, Finder Links); ones you already have are left as they are
 #   --pin-folders   switch Projects & Sections to 0.6.19 without asking
 #                   (your folders are kept); see MAINTAINERS.md
 
@@ -252,7 +252,7 @@ ensure "kanban" "Kanban" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin kan
 step "Installing the mods"
 if [ "$SET_MODS" -eq 0 ]; then
   say "Skipped (--no-mods)."
-  OUTCOME+=("[skipped]    Mods: Helper Desk, Cache Clock, Reflect, Screen Share (--no-mods)")
+  OUTCOME+=("[skipped]    Mods: Helper Desk, Cache Clock, Reflect, Screen Share, Finder Links (--no-mods)")
 elif version_lt "$BB_VERSION" "$MIN_BB_MODS"; then
   say "The mods need bb $MIN_BB_MODS or later; this is bb $BB_VERSION. Skipping them for now."
   OUTCOME+=("[skipped]    Mods: need bb $MIN_BB_MODS or later, then run this again")
@@ -261,6 +261,7 @@ else
   ensure "cache-clock" "Cache Clock (cache countdown, Keep warm, Hand off)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin cache-clock
   ensure "reflect" "Reflect (save the rules you give your agents)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin reflect
   ensure "screen-share" "Screen Share (hide names and amounts on screen)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin screen-share
+  ensure "finder-links" "Finder Links (click a path in a reply to show it in Finder)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin finder-links
 fi
 
 step "Installing the companions (made by other people, MIT, from their own repositories)"
