@@ -5,6 +5,8 @@
 #   - NavAIgate Workspace and Kanban, from this repository
 #   - the five mods, from this repository (bb 0.46 or later): Helper Desk,
 #     Cache Clock, Reflect, Screen Share and Finder Links
+#   - NavMotion Skin, from this repository (bb 0.47 or later): three moving
+#     skins, a Skin button and Markdown in the chat box
 #   - Projects & Sections (project-folders) by VKirill, MIT, from its own repository
 #   - Agent Board by aaronphifer, MIT, from its own repository
 #   - bb's built-in Tasks plugin (opt-in in bb, so it is installed if missing)
@@ -262,6 +264,14 @@ else
   ensure "reflect" "Reflect (save the rules you give your agents)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin reflect
   ensure "screen-share" "Screen Share (hide names and amounts on screen)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin screen-share
   ensure "finder-links" "Finder Links (click a path in a reply to show it in Finder)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin finder-links
+fi
+
+step "Installing NavMotion Skin"
+if version_lt "$BB_VERSION" "0.47"; then
+  say "NavMotion Skin needs bb 0.47 or later; this is bb $BB_VERSION. Skipping it for now."
+  OUTCOME+=("[skipped]    NavMotion Skin: needs bb 0.47 or later, then run this again")
+else
+  ensure "navmotion-skin" "NavMotion Skin (moving skins, a Skin button, Markdown in the chat box)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin navmotion-skin
 fi
 
 step "Installing the companions (made by other people, MIT, from their own repositories)"

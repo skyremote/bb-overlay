@@ -1,0 +1,347 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap");
+/* Generated from themes/src/base.css + themes/src/live.css. Do not edit by hand. */
+
+/*
+  NavMotion skin for bb: shared base (generated into each skin by scripts/build-themes.py).
+  The NavMotion film standard as an app look: a paper ground that keeps moving, white cards
+  with one soft shadow and a hairline, near-black ink, Inter for the interface and Geist Mono
+  for labels. Colour lives inside the interface, never on the ground.
+  Edit themes/src/*.css, then run: python3 scripts/build-themes.py
+*/
+
+:root,
+.light {
+  --canvas: #ffffff;
+  --ink: #16171a;
+  --background: #f3f2ef;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #16171a;
+  --sidebar-accent: color-mix(in oklch, var(--ink) 5%, #ffffff);
+  --sidebar-border: rgb(22 23 26 / 0.08);
+  --border-seam: rgb(22 23 26 / 0.08);
+  --surface-scrim: rgb(243 242 239 / 0.84);
+
+  --primary: #16171a;
+  --primary-foreground: #ffffff;
+  --ring: #5d74a6;
+  --sidebar-ring: #5d74a6;
+  --surface-selected: color-mix(in oklch, #5d74a6 11%, #ffffff);
+  --surface-selected-border: color-mix(in oklch, #5d74a6 38%, #ffffff);
+
+  --muted-foreground: color-mix(in oklch, var(--ink) 66%, var(--canvas));
+  --subtle-foreground: color-mix(in oklch, var(--ink) 52%, var(--canvas));
+  --readback-foreground: color-mix(in oklch, var(--ink) 58%, var(--canvas));
+
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --destructive-text: #b42318;
+  --warning: #c2851f;
+  --warning-text: #8a5a12;
+  --attention: #c2851f;
+  --success: #1f9a5a;
+  --diff-added: #1f8a55;
+  --diff-removed: #b23b2a;
+  --pr-merged: #8e1b4f;
+  --file-accent: #5d74a6;
+
+  --radius: 0.625rem;
+  --shadow-sm: 0 1px 2px rgb(24 26 36 / 0.05);
+  --shadow-md: 0 1px 2px rgb(24 26 36 / 0.04), 0 8px 24px rgb(24 26 36 / 0.07);
+  --shadow-lg: 0 16px 44px rgb(24 26 36 / 0.12);
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", Menlo, monospace;
+  --font-terminal: "Geist Mono", "SF Mono", Menlo, monospace;
+
+  /* NavMotion extras read by the skin rules below and by the motion layer */
+  --nm-dot: rgb(22 23 26 / 0.15);
+  --nm-dot-strong: rgb(22 23 26 / 0.26);
+  --nm-card-shadow: 0 6px 18px rgb(24 26 36 / 0.07), 0 0 0 1px rgb(22 23 26 / 0.08);
+  --nm-ripple: rgb(93 116 166 / 0.16);
+  --nm-ripple-ring: rgb(93 116 166 / 0.42);
+}
+
+.dark {
+  --canvas: #16171a;
+  --ink: #f3f2ef;
+  --background: #0d0e10;
+  --card: #16171a;
+  --popover: #1a1b1f;
+  --sidebar: #121316;
+  --sidebar-foreground: #f3f2ef;
+  --sidebar-accent: color-mix(in oklch, var(--ink) 7%, #121316);
+  --sidebar-border: rgb(255 255 255 / 0.07);
+  --border-seam: rgb(255 255 255 / 0.07);
+  --surface-scrim: rgb(13 14 16 / 0.82);
+
+  --primary: #f3f2ef;
+  --primary-foreground: #0d0e10;
+  --ring: #9fb1c9;
+  --sidebar-ring: #9fb1c9;
+  --surface-selected: color-mix(in oklch, #9fb1c9 14%, #16171a);
+  --surface-selected-border: color-mix(in oklch, #9fb1c9 40%, #16171a);
+
+  --destructive: #f04438;
+  --destructive-foreground: #0d0e10;
+  --destructive-text: #f0907f;
+  --warning: #e0b46c;
+  --warning-text: #e0b46c;
+  --attention: #e0b46c;
+  --success: #3fcf85;
+  --diff-added: #5fcf94;
+  --diff-removed: #f0907f;
+  --pr-merged: #c9689a;
+  --file-accent: #9fb1c9;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 16px 48px rgb(0 0 0 / 0.6);
+
+  --nm-dot: rgb(255 255 255 / 0.11);
+  --nm-dot-strong: rgb(255 255 255 / 0.2);
+  --nm-card-shadow: 0 8px 22px rgb(0 0 0 / 0.4), 0 0 0 1px rgb(255 255 255 / 0.08);
+  --nm-ripple: rgb(159 177 201 / 0.14);
+  --nm-ripple-ring: rgb(159 177 201 / 0.38);
+}
+
+/* Cards on the ground: the composer and your own messages are white cards with one soft
+   shadow and a hairline. The agent's text sits straight on the ground. */
+form[data-promptbox] {
+  background: var(--card);
+  border-color: transparent;
+  box-shadow: var(--nm-card-shadow);
+}
+[data-message-column] .group\/message .bg-surface-recessed {
+  background: var(--card);
+  border-color: transparent;
+  box-shadow: var(--nm-card-shadow);
+}
+
+/* Type: Inter tight for titles, Geist Mono labels stay as bb sets them */
+body {
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11" 1, "ss01" 1;
+}
+
+/* Motion on bb's own controls (no behaviour change). Arrivals are fast, then settle;
+   presses squash on a spring. Nothing here runs if the device asks for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-timeline-items] > [data-timeline-row-id]:last-child {
+    animation: nm-arrive 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  form[data-promptbox] button,
+  [data-follow-up-composer-footer] button {
+    transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  form[data-promptbox] button:active,
+  [data-follow-up-composer-footer] button:active {
+    transform: scale(0.92);
+  }
+  a[data-sidebar-thread-id] {
+    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  a[data-sidebar-thread-id]:active {
+    transform: scale(0.985);
+  }
+}
+@keyframes nm-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- The NavMotion ground (v2) ----------
+   The motion layer builds these elements once, behind bb's content. They move only with
+   transform and opacity, so the compositor runs them at the screen's full rate (60 or 120 Hz)
+   without the main thread. The ground fades out softly behind the reading column, so the
+   text always sits on a clean surface. */
+main[data-sidebar="inset"] {
+  isolation: isolate;
+}
+main[data-sidebar="inset"] header.bg-surface-scrim {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.nm-ground {
+  --nm-col-left: calc(50% - 400px);
+  --nm-col-right: calc(50% + 400px);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(var(--nm-col-left) - 120px), transparent calc(var(--nm-col-left) + 8px), transparent calc(var(--nm-col-right) - 8px), #000 calc(var(--nm-col-right) + 120px), #000 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(var(--nm-col-left) - 120px), transparent calc(var(--nm-col-left) + 8px), transparent calc(var(--nm-col-right) - 8px), #000 calc(var(--nm-col-right) + 120px), #000 100%);
+}
+.nm-ground > * {
+  display: none;
+}
+.nm-ground > .nm-ripple {
+  display: block;
+}
+.nm-drift {
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  bottom: -30px;
+  left: -30px;
+  will-change: transform;
+  animation: nm-drift 24s linear infinite;
+}
+.nm-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--nm-dot) 0 1px, transparent 1.5px);
+  background-size: 15px 15px;
+}
+.nm-swell {
+  position: absolute;
+  width: 600px;
+  height: 450px;
+  opacity: 0;
+  background-image: radial-gradient(circle, var(--nm-dot-strong) 0 1.9px, transparent 2.4px);
+  background-size: 15px 15px;
+  -webkit-mask-image: radial-gradient(closest-side, #000 0%, rgb(0 0 0 / 0.5) 45%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 0%, rgb(0 0 0 / 0.5) 45%, transparent 100%);
+  will-change: opacity;
+  animation: nm-swell 15s ease-in-out infinite;
+}
+.nm-s2 { animation-delay: -10s; }
+.nm-s3 { animation-delay: -5s; }
+.nm-silk {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+.nm-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1600px;
+  height: 1600px;
+  margin: -800px 0 0 -800px;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.12);
+  background-image: radial-gradient(circle, var(--nm-dot-strong) 0 1.7px, transparent 2.2px);
+  background-size: 15px 15px;
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 70%, #000 82%, transparent 94%);
+  mask-image: radial-gradient(circle closest-side, transparent 70%, #000 82%, transparent 94%);
+  will-change: transform, opacity;
+}
+.nm-ring.nm-go {
+  animation: nm-ring 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.nm-tunnel {
+  position: absolute;
+  inset: 0;
+  background: #0d0e10;
+}
+.nm-tunnel i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  box-sizing: border-box;
+  border: 1.6px solid #ffffff;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.1);
+  will-change: transform, opacity;
+  animation: nm-tunnel 19.05s linear infinite;
+}
+.nm-tunnel .nm-tall { width: 688px; height: 1280px; border-radius: 96px; }
+.nm-tunnel .nm-wide { width: 1376px; height: 640px; border-radius: 90px; }
+.nm-ripple {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--nm-ripple) 0%, transparent 62%);
+  will-change: transform, opacity;
+  animation: nm-ripple 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.nm-ripple::before,
+.nm-ripple::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid var(--nm-ripple-ring);
+}
+.nm-ripple::before { inset: 0; }
+.nm-ripple::after { inset: 19%; }
+.nm-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  contain: strict;
+}
+.nm-spark {
+  position: absolute;
+  display: block;
+  border-radius: 0.5px;
+  will-change: transform, opacity;
+}
+@keyframes nm-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(15px, 30px, 0); }
+}
+@keyframes nm-swell {
+  0% { opacity: 0; }
+  14% { opacity: 1; }
+  34% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes nm-ring {
+  0% { transform: scale(0.12); opacity: 0; }
+  12% { opacity: 0.95; }
+  100% { transform: scale(1); opacity: 0; }
+}
+@keyframes nm-ripple {
+  from { transform: scale(0.05); opacity: 1; }
+  to { transform: scale(1); opacity: 0; }
+}
+/* scale grows ten-fold on a log curve, so each outline rushes as it nears the edge */
+@keyframes nm-tunnel {
+  0% { transform: translate(-50%, -50%) scale(0.1); opacity: 0; }
+  10% { transform: translate(-50%, -50%) scale(0.126); opacity: 0.099; }
+  20% { transform: translate(-50%, -50%) scale(0.158); opacity: 0.17; }
+  30% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.17; }
+  40% { transform: translate(-50%, -50%) scale(0.251); opacity: 0.17; }
+  50% { transform: translate(-50%, -50%) scale(0.316); opacity: 0.17; }
+  60% { transform: translate(-50%, -50%) scale(0.398); opacity: 0.17; }
+  70% { transform: translate(-50%, -50%) scale(0.501); opacity: 0.17; }
+  80% { transform: translate(-50%, -50%) scale(0.631); opacity: 0.126; }
+  90% { transform: translate(-50%, -50%) scale(0.794); opacity: 0.044; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nm-ground,
+  .nm-ground * {
+    animation: none !important;
+  }
+}
+
+/* ---------- NavMotion Live: the ground shows what your agents are doing ---------- */
+:root { --nm-skin: live; }
+
+/* Dots when the agent in view is idle, flowing silk while it works, a halo ring when it
+   finishes. Every change is an opacity crossfade on the compositor. */
+.nm-ground > .nm-drift,
+.nm-ground > .nm-silk,
+.nm-ground > .nm-ring {
+  display: block;
+}
+.nm-ground > .nm-drift,
+.nm-ground > .nm-silk {
+  transition: opacity 0.8s ease;
+}
+.nm-ground[data-state="working"] > .nm-drift {
+  opacity: 0;
+}
+.nm-ground:not([data-state="working"]) > .nm-silk {
+  opacity: 0;
+}

@@ -16,7 +16,7 @@
 
 ## What's inside
 
-Two bb plugins, plus five mods and one optional studio:
+Three bb plugins, plus five mods and one optional studio:
 
 - **NavAIgate Workspace** (`plugins/workspace`)
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
@@ -33,6 +33,10 @@ Two bb plugins, plus five mods and one optional studio:
   - **Home or away (optional):** if your files live on a NAS, new chats start on the share at home and on a local copy when you're away.
   - **The NavAIgate theme**, chat charts and link cards.
 - **Kanban** (`plugins/kanban`): a board where every card is a chat. Agents move their own cards from Backlog to In progress, Review and Done.
+- **NavMotion Skin** (`plugins/navmotion-skin`): three moving skins in the look of NavAIgate's motion films, a Skin button and Markdown in the chat box. Needs bb 0.47 or later.
+  - **Skins:** NavMotion Dots (a drifting dot ground), Live (dots while the agent in view is idle, flowing silk while it works, a halo ring when it finishes) and Tunnel (outlines growing out of the centre in dark mode, with plum accents). The ground runs on the graphics card at your screen's full rate and fades out behind the text, so reading stays clean.
+  - **Skin button:** in the sidebar footer, every skin one click away, the NavAIgate theme included. A pick applies on every device that opens your bb.
+  - **Markdown in the chat box:** bold, italics, code, headings, lists, tables and links format as you type. The Md button opens a Preview tab on the side, and the + menu inserts a table, a checklist or a heading.
 
 ### Mods
 
@@ -157,6 +161,11 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.10.0
+
+- **NavMotion Skin**, a new plugin: three moving skins (Dots, Live and Tunnel), a Skin button in the sidebar footer, and Markdown in the chat box with a live Preview tab. The motion runs on the graphics card at your screen's full rate, costs bb's main thread nothing, and stops if your system asks for reduced motion.
+- The installer adds it on bb 0.47 or later and leaves your theme as it is. Pick a skin from the Skin button, and pick NavAIgate there to go back.
 
 ## What's new in 1.9.0
 
