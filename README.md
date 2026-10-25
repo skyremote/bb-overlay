@@ -16,7 +16,7 @@
 
 ## What's inside
 
-Two bb plugins, plus five mods:
+Two bb plugins, plus five mods and one optional studio:
 
 - **NavAIgate Workspace** (`plugins/workspace`)
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
@@ -43,6 +43,20 @@ Five small plugins that change how bb looks and behaves while you work. Each is 
 - **Reflect** (`reflect`): when you tell an agent a lasting rule ("from now on never use hashtags in my posts"), a card asks whether to save it, with one press, to your CLAUDE.md, your own voice or style guide, or your notes tool. No AI, so it costs nothing to run.
 - **Screen Share** (`screen-share`): type `/screenshare` before you share your screen or record, and every name, email, phone number and amount in bb turns into a grey bar, on every screen at once, your phone included. The agent still sees the real text.
 - **Finder Links** (`finder-links`): click any file or folder path an agent writes in a reply and Finder opens with it selected. Only paths that really exist get the dotted underline, and bb's own file links that point at the wrong folder are repaired so the preview opens the real file. macOS.
+
+### Optional: NavMotion Studio
+
+**NavMotion Studio** (`navmotion`) is the dashboard for NavAIgate's navmotion skill, which makes motion films, Shorts, long-form inserts and deck graphics drawn frame by frame in JavaScript canvas. Each project shows its stages, storyboard stills, layout check, live render progress, covers and finished video, and **Approve** or **Request changes** goes straight to the agent working on it. A **New** page starts a project from a brief, and a **Guide** explains how to judge the work.
+
+The skill itself is NavAIgate's internal production tool and is not in this repository, so the installer leaves the Studio out. Without the skill it runs but has nothing to show. If you have the skill:
+
+```sh
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin navmotion
+bb plugin config navmotion set bbProjectId <the bb project for new threads>
+bb plugin config navmotion set reviewerName <your first name>
+```
+
+Details: [plugins/navmotion/README.md](plugins/navmotion/README.md).
 
 Each mod also has its own tab in the right panel: press **+** beside your tabs and pick **Helper Desk**, **Cache clock**, **Reflect**, **Screen share** or **Mods**, a hub that shows every mod's status with a switch for Screen share and an Open button for the rest.
 
@@ -143,6 +157,10 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.9.0
+
+- **NavMotion Studio** (optional, see above): a dashboard for the navmotion motion-film skill, with project cards, storyboard stills with layout guides, live render progress, covers in three sizes, a video player that seeks, Approve and Request changes that reach the agent, a New page and a Guide. The installer does not add it.
 
 ## What's new in 1.7.2
 
