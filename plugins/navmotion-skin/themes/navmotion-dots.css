@@ -304,19 +304,20 @@ main[data-sidebar="inset"] header.bg-surface-scrim {
   from { transform: scale(0.05); opacity: 1; }
   to { transform: scale(1); opacity: 0; }
 }
-/* scale grows ten-fold on a log curve, so each outline rushes as it nears the edge */
+/* each outline grows sixteen-fold on a log curve, so it rushes as it nears the edge and
+   keeps passing through the margins beside the clear reading column */
 @keyframes nm-tunnel {
-  0% { transform: translate(-50%, -50%) scale(0.1); opacity: 0; }
-  10% { transform: translate(-50%, -50%) scale(0.126); opacity: 0.099; }
-  20% { transform: translate(-50%, -50%) scale(0.158); opacity: 0.17; }
-  30% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.17; }
-  40% { transform: translate(-50%, -50%) scale(0.251); opacity: 0.17; }
-  50% { transform: translate(-50%, -50%) scale(0.316); opacity: 0.17; }
-  60% { transform: translate(-50%, -50%) scale(0.398); opacity: 0.17; }
-  70% { transform: translate(-50%, -50%) scale(0.501); opacity: 0.17; }
-  80% { transform: translate(-50%, -50%) scale(0.631); opacity: 0.126; }
-  90% { transform: translate(-50%, -50%) scale(0.794); opacity: 0.044; }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  0% { transform: translate(-50%, -50%) scale(0.150); opacity: 0; }
+  10% { transform: translate(-50%, -50%) scale(0.198); opacity: 0.14; }
+  20% { transform: translate(-50%, -50%) scale(0.261); opacity: 0.21; }
+  30% { transform: translate(-50%, -50%) scale(0.345); opacity: 0.21; }
+  40% { transform: translate(-50%, -50%) scale(0.455); opacity: 0.21; }
+  50% { transform: translate(-50%, -50%) scale(0.600); opacity: 0.21; }
+  60% { transform: translate(-50%, -50%) scale(0.792); opacity: 0.21; }
+  70% { transform: translate(-50%, -50%) scale(1.045); opacity: 0.21; }
+  80% { transform: translate(-50%, -50%) scale(1.378); opacity: 0.19; }
+  90% { transform: translate(-50%, -50%) scale(1.819); opacity: 0.1; }
+  100% { transform: translate(-50%, -50%) scale(2.400); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .nm-ground,
