@@ -1,0 +1,6 @@
+/* ---------- NavMotion Dots: calm paper that never stops moving ---------- */
+:root { --nm-skin: dots; }
+
+/* The ground: an even dot grid drifting on a diagonal, with soft swells of larger dots
+   passing through it (the dots ground from NavAIgate's motion films). */
+.nm-ground > .nm-drift { display: block; }

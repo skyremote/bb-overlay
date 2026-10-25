@@ -1,0 +1,72 @@
+{
+  "name": "bb-plugin-navmotion-skin",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.47",
+    "bbPluginSdk": ">=0.6.75"
+  },
+  "bb": {
+    "name": "NavMotion Skin",
+    "description": "Three NavMotion skins with moving grounds (Dots, Live, Tunnel), a Skin button in the sidebar footer that keeps every skin one click away, and Markdown in the chat box with a live Preview tab on the side.",
+    "branding": {
+      "icon": "Palette"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": [
+      "skills"
+    ],
+    "themes": [
+      {
+        "id": "dots",
+        "name": "NavMotion Dots",
+        "description": "Calm paper that never stops moving: a drifting dot ground, white cards, ink type.",
+        "css": "./themes/navmotion-dots.css",
+        "codeTheme": {
+          "dark": "vitesse-dark",
+          "light": "vitesse-light"
+        }
+      },
+      {
+        "id": "live",
+        "name": "NavMotion Live",
+        "description": "The ground shows what your agents are doing: dots when idle, silk while working, a halo when done.",
+        "css": "./themes/navmotion-live.css",
+        "codeTheme": {
+          "dark": "vitesse-dark",
+          "light": "vitesse-light"
+        }
+      },
+      {
+        "id": "tunnel",
+        "name": "NavMotion Tunnel",
+        "description": "The dark studio from the films: outlines growing out of the centre, plum smoke inside the interface.",
+        "css": "./themes/navmotion-tunnel.css",
+        "codeTheme": {
+          "dark": "vitesse-dark",
+          "light": "vitesse-light"
+        }
+      }
+    ]
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.75",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "hono": "^4.11.9",
+    "typescript": "^5.7.0"
+  },
+  "description": "The NavMotion look for bb: three moving skins (Dots, Live, Tunnel), a one-click Skin button, and Markdown formatting in the chat box with a live side preview.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skyremote/bb-overlay.git",
+    "directory": "plugins/navmotion-skin"
+  },
+  "author": "NavAIgate",
+  "private": true
+}

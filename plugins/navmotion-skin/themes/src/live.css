@@ -1,0 +1,20 @@
+/* ---------- NavMotion Live: the ground shows what your agents are doing ---------- */
+:root { --nm-skin: live; }
+
+/* Dots when the agent in view is idle, flowing silk while it works, a halo ring when it
+   finishes. Every change is an opacity crossfade on the compositor. */
+.nm-ground > .nm-drift,
+.nm-ground > .nm-silk,
+.nm-ground > .nm-ring {
+  display: block;
+}
+.nm-ground > .nm-drift,
+.nm-ground > .nm-silk {
+  transition: opacity 0.8s ease;
+}
+.nm-ground[data-state="working"] > .nm-drift {
+  opacity: 0;
+}
+.nm-ground:not([data-state="working"]) > .nm-silk {
+  opacity: 0;
+}

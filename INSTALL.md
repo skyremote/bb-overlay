@@ -37,6 +37,7 @@ bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin 
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin reflect
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin screen-share
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin finder-links
+bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin navmotion-skin
 bb plugin install git:https://github.com/VKirill/bb-plugin-project-folders.git@v0.6.19
 bb plugin install git:https://github.com/aaronphifer/bb-plugin-agent-board.git@semver:^0.6.1
 bb plugin install tasks
