@@ -3,12 +3,32 @@
   "schemaVersion": 1,
   "name": "bb-overlay",
   "plugins": [
-    { "name": "workspace", "source": "./plugins/workspace" },
-    { "name": "kanban", "source": "./plugins/kanban" },
-    { "name": "helper-desk", "source": "./plugins/helper-desk" },
-    { "name": "cache-clock", "source": "./plugins/cache-clock" },
-    { "name": "reflect", "source": "./plugins/reflect" },
-    { "name": "screen-share", "source": "./plugins/screen-share" },
-    { "name": "finder-links", "source": "./plugins/finder-links" }
+    { "name": "workspace",
+      "source": "./plugins/workspace"
+    },
+    { "name": "kanban",
+      "source": "./plugins/kanban"
+    },
+    { "name": "helper-desk",
+      "source": "./plugins/helper-desk"
+    },
+    { "name": "cache-clock",
+      "source": "./plugins/cache-clock"
+    },
+    { "name": "reflect",
+      "source": "./plugins/reflect"
+    },
+    { "name": "screen-share",
+      "source": "./plugins/screen-share"
+    },
+    { "name": "finder-links",
+      "source": "./plugins/finder-links"
+    },
+    { "name": "navmotion-skin",
+      "source": "./plugins/navmotion-skin"
+    },
+    { "name": "navmotion",
+      "source": "./plugins/navmotion"
+    }
   ]
 }
