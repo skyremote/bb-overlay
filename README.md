@@ -22,7 +22,7 @@ Three bb plugins, plus five mods and one optional studio:
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
   - **Inbox:** every email from your Gmail accounts, read-only. "Sort with Jev" puts each one in a pile (Reply today, Clients, Partners, Billing, Community, Newsletters and more). "Hand to agent" starts a chat that drafts the reply but never sends it.
   - **Calendar:** your Google Calendars as a month view, with your booking links.
-  - **The rail:** a run-sheet sidebar with two-line chat rows (model, effort, sub-agents and branch), a colour per project, a NOW card, a harness filter, a Tags dropdown, folders (and folders inside folders), groups that hold whole projects, guide lines that show what sits inside what, "Come back later", and right-click on everything. bb's navigation sits under a Navigate row that folds to one line (⌘⇧B) or hides.
+  - **The rail:** a run-sheet sidebar with two-line chat rows (model, effort, sub-agents and branch), a colour per project, a NOW card, a harness filter, a Tags dropdown, folders (and folders inside folders), groups that hold whole projects, guide lines that show what sits inside what, "Come back later", and right-click on everything. Navigation icons sit in bb's thin rail on the far left, beside the chat list.
   - **Tabs:** a strip of the chats you have open, with a hover preview and drag to reorder.
   - **Chips under the chat box:** hold a message until the chat's sub-agents finish, start or move a chat on your always-on machine, and see which Claude account a chat runs on.
   - **Usage card:** hover the usage line under the chat box (or focus it and press Enter) for charts of the session and the week since each window opened, a forecast to the reset with a warning before you cross 90%, your burn rate, time to the limit and the chats that used the most. Tabs switch between every Claude, ChatGPT and Cursor account.
@@ -74,7 +74,7 @@ You need bb installed (0.45 or later, on macOS or Linux), open, and signed in to
 curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
 ```
 
-It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins and the five mods from this repository (`--no-mods` skips the mods), the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme and the NavAIgate rail as the sidebar list, reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
+It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins and the five mods from this repository (`--no-mods` skips the mods), the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme, the NavAIgate rail as the sidebar list and bb's left icon rail as navigation (bb 0.47 or later), reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
 
 **Read it first.** It's a good habit to read a script before you pipe it into a shell: [install.sh](install.sh). To see every command it would run without changing anything:
 
@@ -82,7 +82,7 @@ It installs everything BB Overlay uses, in one go: the workspace and Kanban plug
 curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash -s -- --dry-run
 ```
 
-Safe to run again: it updates what's already there within its own pin, never removes or downgrades anything without asking, and leaves alone any plugin you installed from somewhere else. The one thing it asks about is Projects & Sections at 0.6.20 or later: it offers to switch you to 0.6.19 and keeps your folders (`--pin-folders` switches without asking). If a different NavAIgate rail is already your sidebar list, it leaves your theme and rail as they are; `--no-look` skips that step altogether. There is no Windows version, because bb runs on macOS and Linux.
+Safe to run again: it updates what's already there within its own pin, never removes or downgrades anything without asking, and leaves alone any plugin you installed from somewhere else. The one thing it asks about is Projects & Sections at 0.6.20 or later: it offers to switch you to 0.6.19 and keeps your folders (`--pin-folders` switches without asking). If a different NavAIgate rail is already your sidebar list, it leaves your theme and rail as they are; Navigation still uses the left icon rail; `--no-look` skips all appearance changes altogether. There is no Windows version, because bb runs on macOS and Linux.
 
 **Prefer a bb chat?** Paste: "Run the BB Overlay installer: `curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash`. Then open Home and walk me through Set up."
 
@@ -102,7 +102,7 @@ bb plugin install tasks
 
 Projects & Sections is pinned to 0.6.19, the last release that runs on standard bb. Later releases need VKirill's own build of bb. Why, and when the pin comes off: [MAINTAINERS.md](MAINTAINERS.md).
 
-Then pick the look in bb: **Settings, Appearance**. Choose the NavAIgate theme and the NavAIgate rail as the thread list. (On bb 0.44 and 0.45 there is also a NavAIgate sidebar header; bb 0.46 removed that option.)
+Then pick the look in bb: **Settings, Appearance**. Choose the NavAIgate theme, the NavAIgate rail as the thread list, and **Rail** as Navigation (bb 0.47 or later). (On bb 0.44 and 0.45 there is also a NavAIgate sidebar header; bb 0.46 removed that option.)
 
 Not technical? Follow the step-by-step guide in [INSTALL.md](INSTALL.md).
 
@@ -161,6 +161,12 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.10.1
+
+- Fresh installs keep navigation icons in the thin rail on the far left, with chats beside them. The workspace no longer registers its old Navigate list, which bb's Automatic setting could choose above the chats.
+- The installer explicitly selects `navigation/rail` on bb 0.47 or later, including when it keeps a personal NavAIgate theme. `--no-look` leaves all appearance preferences alone.
+- Already installed? Run the installer again, or run `bb settings ui set sidebar.navigationProvider navigation/rail`, then reload bb. In the UI: **Settings → Appearance → Navigation → Rail**. Keep **Thread list → NavAIgate rail**; it is a separate setting.
 
 ## What's new in 1.10.0
 

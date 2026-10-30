@@ -53,7 +53,16 @@ The installer turns these on for you. If it said "by hand", or you skipped it, o
 
 - **Theme:** NavAIgate
 - **Thread list:** NavAIgate rail
+- **Navigation:** Rail (bb 0.47 or later)
 - **Sidebar header:** NavAIgate (only on bb 0.44 and 0.45; bb 0.46 removed this option, so skip it there)
+
+If navigation appears as a long list above your chats, choose **Rail** under Navigation. The two settings do different jobs: Navigation places the icons; Thread list draws the chats. The installer now selects both automatically. To repair an existing install directly:
+
+```sh
+bb settings ui set sidebar.navigationProvider navigation/rail
+```
+
+Reload bb with Cmd-R (Ctrl-R on Linux).
 
 ## 3. Set up your workspace
 

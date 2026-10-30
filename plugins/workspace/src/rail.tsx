@@ -30,7 +30,6 @@ import { Menu, MenuItem, MenuLabel, MenuSeparator, MenuSub } from "./menu";
 import { TAG_CSS, useRailState, type LaterReason, type RailOps, type Tag } from "./rail-state";
 import { LATER_LABEL, StatusMark } from "./status-mark";
 import { TagChips, TagEditor, TagFilter, TagSwatches, type TagEdit } from "./tags";
-import { NAV_SHORTCUT, setNavMode, useNavMode } from "./nav-fold";
 import { BulkBar } from "./bulk-bar";
 import { TodoBadge, useFolderTodoCounts } from "./todo";
 import { CloudGlyph, MachineMark, useMachine, useMachineActions, type MachineItem } from "./machine";
@@ -843,7 +842,6 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
     tagTargets.current = ids;
     setTagEditState({ kind: "new" });
   }, []);
-  const navMode = useNavMode();
   // Two-line rows by default; "Compact rows" brings back the one-line rows.
   const [compact, setCompactNow] = usePersisted<boolean>("nav-skin:compact-rows", false);
   const [rowsMotion, setRowsMotion] = useState<"" | "out" | "in">("");
@@ -1579,12 +1577,6 @@ export function Rail({ activeThreadId, activeProjectId, onNavigate }: PluginThre
       <MenuSeparator />
       <MenuItem icon="ChevronsDown" label="Expand all" hint="sub-agents" onSelect={() => ops.setSubOpen([...model.children.keys()], true)} />
       <MenuItem icon="ChevronsUp" label="Collapse all" hint="sub-agents" onSelect={() => ops.setSubOpen([...ops.state.subOpen], false)} />
-      {navMode === "hidden" ? (
-        <>
-          <MenuSeparator />
-          <MenuItem icon="Eye" label="Show navigation" hint={NAV_SHORTCUT} onSelect={() => setNavMode("open")} />
-        </>
-      ) : null}
     </Menu>
     </TooltipProvider>
   );

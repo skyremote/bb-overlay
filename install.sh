@@ -24,7 +24,7 @@
 #   bash install.sh [--dry-run] [--no-look] [--no-mods] [--pin-folders] [--help]
 #
 #   --dry-run       print every command, change nothing
-#   --no-look       leave the theme and the sidebar list as they are
+#   --no-look       leave the theme, navigation and sidebar list as they are
 #   --no-mods       skip the five mods (Helper Desk, Cache Clock, Reflect,
 #                   Screen Share, Finder Links); ones you already have are left as they are
 #   --pin-folders   switch Projects & Sections to 0.6.19 without asking
@@ -78,6 +78,8 @@ for arg in "$@"; do
     *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
+
+SET_LOOK_REQUESTED=$SET_LOOK
 
 W_INST="[installed]"; W_UPD="[up to date]"
 if [ "$DRY_RUN" -eq 1 ]; then W_INST="[would install]"; W_UPD="[would update]"; fi
@@ -301,6 +303,7 @@ manual_look() {
   say "Set the look by hand in bb: Settings, Appearance."
   say "  Theme: NavAIgate"
   say "  Thread list: NavAIgate rail"
+  say "  Navigation: Rail (bb 0.47 or later)"
 }
 step "The NavAIgate theme and rail"
 if [ "$SET_LOOK" -eq 0 ]; then
@@ -331,6 +334,22 @@ else
       run bb theme set "$THEME_ID" || { warn "Couldn't set the theme."; manual_look; }
     fi
     OUTCOME+=("[ok]         NavAIgate theme and rail")
+  fi
+fi
+
+# Navigation and thread list are separate preferences. Since bb 0.47,
+# Automatic can pick another plugin's navigation list above the chats.
+# Pin the bundled icon rail even when preserving a personal NavAIgate theme.
+if [ "$SET_LOOK_REQUESTED" -eq 1 ] && ! version_lt "$BB_VERSION" "0.47"; then
+  nav="$(bb settings ui get sidebar.navigationProvider 2>/dev/null | tr -d '"[:space:]' || true)"
+  if [ "$nav" = "navigation/rail" ]; then
+    say "Navigation is already the left icon rail."
+    OUTCOME+=("[ok]         Left icon rail (navigation/rail)")
+  elif run bb settings ui set sidebar.navigationProvider navigation/rail; then
+    OUTCOME+=("[ok]         Left icon rail (navigation/rail)")
+  else
+    warn "Couldn't set navigation. Open Settings, Appearance, Navigation and choose Rail."
+    OUTCOME+=("[by hand]    Navigation: Settings, Appearance, Navigation, Rail")
   fi
 fi
 
