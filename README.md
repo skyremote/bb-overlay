@@ -1,6 +1,6 @@
 # BB Overlay
 
-**A complete front end for [bb](https://getbb.app), from [NavAIgate](https://navaigate.dev).** One place for your agents, your inbox, your calendar and your to-dos, with a voice agent and the option to hand work to an always-on machine.
+**Two starting setups for [bb](https://getbb.app), from [NavAIgate](https://navaigate.dev): Simple and Pro.** Simple is a quiet branded IDE with the essential helpers. Pro keeps the established full Workspace exactly as before. Both have an acknowledged, replayable walkthrough over the real controls.
 
 > **In plain words**
 >
@@ -14,9 +14,17 @@
 >
 > The legal terms are in [LICENSE](LICENSE) (PolyForm Internal Use 1.0.0) and [NOTICE](NOTICE). If this box and those files ever disagree, the files win.
 
-## What's inside
+## Choose Simple or Pro
 
-Three bb plugins, plus five mods and one optional studio:
+- **Simple** (`plugins/simple`): a lean, real project/chat sidebar with native BB navigation and conversation tools, a Features drawer and a warm light/dark theme. Installs Helper Desk, Cache Clock, Reflect and Screen Share. It does not load the full Workspace's Inbox, Calendar, Voice or machine services.
+- **Pro** (`plugins/workspace`): the existing full Workspace described below. Its interface has not been redesigned. Existing personal Pro installations keep their exact skin source, appearance, tabs and module choices.
+- **BB Overlay guide** (`plugins/onboarding`): automatic first-install invitation, an anchored walkthrough for each edition, explicit read acknowledgement at every step, saved pause/resume, completion history and replay from plugin Settings. No video; short spatial transitions with reduced-motion support. It never acknowledges a step on a timer or connects accounts for you.
+
+Fresh installs default to Simple. Add `--edition pro` for a fresh full Workspace, or `--edition simple` to choose Simple explicitly. Running the installer again without an edition preserves the current setup. Switching editions never uninstalls plugins or deletes their data.
+
+## What's inside Pro
+
+The established Workspace, boards and optional companion tools:
 
 - **NavAIgate Workspace** (`plugins/workspace`)
   - **Home:** a greeting, your daily brief, an Ask box that Jev routes to the right harness, today's calendar, mail that needs a reply, social posts, and how much of each subscription you've used.
@@ -68,13 +76,13 @@ Inspired by Ben AI's Claude Code mods video. The pixel bots are original NavAIga
 
 ## Install
 
-You need bb installed (0.45 or later, on macOS or Linux), open, and signed in to at least one harness (Claude Code, Codex or Cursor). Then run one command in a terminal:
+You need bb installed (0.48 or later, on macOS or Linux), open, and signed in to at least one harness (Claude Code, Codex or Cursor). Then run one command in a terminal:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
 ```
 
-It installs everything BB Overlay uses, in one go: the workspace and Kanban plugins and the five mods from this repository (`--no-mods` skips the mods), the two companion plugins from their own repositories (Projects & Sections for folders, and Agent Board), and bb's built-in Tasks. Then it turns on the NavAIgate theme, the NavAIgate rail as the sidebar list and bb's left icon rail as navigation (bb 0.47 or later), reloads, and prints a checklist. Reload bb, open **Home** and walk through Set up.
+On a fresh machine this installs Simple, the four essential helpers and the guide. For a fresh full Pro setup, use `bash -s -- --edition pro` after the pipe. On an existing installation it preserves your edition, appearance and disabled tools, updates matching installed packages and adds the guide. Reload BB and start the invitation. You explicitly acknowledge each step; pause/resume or replay from **Settings → Plugins → BB Overlay guide**. [Full install instructions](INSTALL.md).
 
 **Read it first.** It's a good habit to read a script before you pipe it into a shell: [install.sh](install.sh). To see every command it would run without changing anything:
 
@@ -161,6 +169,14 @@ The installer adds two plugins made by other people. They are not part of BB Ove
 It also uses two plugins built into bb: **Tasks** (To-do and the Board; bb ships it but it's opt-in, so the installer adds it) and, if you use it, **Account Pooler** (per-account usage in the dock and the Claude account chip; add your accounts with `bb pool`).
 
 If a companion is missing, the rest still works. Its feature shows greyed out with the line that installs it, for example "Move to folder" says "Install project-folders to use folders", and the last step of Set up lists every companion as installed or missing, with a Copy button for its install line.
+
+## What's new in 1.11.0
+
+- **Simple is real:** a separate lightweight package supplies the approved quiet sidebar while BB owns the conversation, files, terminal, diffs and Side Chat. No Workspace backend integrations or background services are created by Simple.
+- **Pro stays Pro:** no redesign of the existing Workspace or personal skin. Upgrades retain appearance, tabs, local plugin sources and disabled extras.
+- **Guided onboarding for both:** coach marks follow real controls, each step requires an explicit read check, pause/resume is saved and Settings can replay a new run. No videos; polished transitions respect reduced motion.
+- **Edition-aware installer:** fresh defaults to Simple, `--edition pro` chooses the established full setup, updates preserve the current edition. Optional plugins are never uninstalled; no automatic re-enabling of disabled helpers.
+- Requires BB 0.48 or later. Existing Pro Set up remains separate from the tour and handles optional connections.
 
 ## What's new in 1.10.1
 

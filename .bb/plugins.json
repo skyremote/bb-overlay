@@ -3,32 +3,49 @@
   "schemaVersion": 1,
   "name": "bb-overlay",
   "plugins": [
-    { "name": "workspace",
+    {
+      "name": "workspace",
       "source": "./plugins/workspace"
     },
-    { "name": "kanban",
+    {
+      "name": "kanban",
       "source": "./plugins/kanban"
     },
-    { "name": "helper-desk",
+    {
+      "name": "helper-desk",
       "source": "./plugins/helper-desk"
     },
-    { "name": "cache-clock",
+    {
+      "name": "cache-clock",
       "source": "./plugins/cache-clock"
     },
-    { "name": "reflect",
+    {
+      "name": "reflect",
       "source": "./plugins/reflect"
     },
-    { "name": "screen-share",
+    {
+      "name": "screen-share",
       "source": "./plugins/screen-share"
     },
-    { "name": "finder-links",
+    {
+      "name": "finder-links",
       "source": "./plugins/finder-links"
     },
-    { "name": "navmotion-skin",
+    {
+      "name": "navmotion-skin",
       "source": "./plugins/navmotion-skin"
     },
-    { "name": "navmotion",
+    {
+      "name": "navmotion",
       "source": "./plugins/navmotion"
+    },
+    {
+      "name": "simple",
+      "source": "./plugins/simple"
+    },
+    {
+      "name": "onboarding",
+      "source": "./plugins/onboarding"
     }
   ]
 }

@@ -6,7 +6,9 @@ Projects & Sections (`project-folders`, by VKirill) gives the rail its folders a
 
 So we pin to the tag `v0.6.19`, the last release that runs on standard bb. bb treats an exact git tag as pinned: `bb plugin outdated` shows it as `pinned` and `bb plugin update --all` leaves it alone.
 
-The installer installs `git:https://github.com/VKirill/bb-plugin-project-folders.git@v0.6.19` and never updates it in place. If it finds a copy at 0.6.20 or later, or one that follows a range or branch, it warns and offers to switch to the pinned 0.6.19 (`--pin-folders` does it without asking). Switching runs `bb plugin remove project-folders` and then installs the pinned tag. bb keeps the plugin's data (`<bb data dir>/plugins/project-folders/data.db`) when a plugin is removed, so folders, placements and rules survive. We tested this from 0.6.37 down to 0.6.19 and from a range to the tag at the same version.
+The Pro installer uses `git:https://github.com/VKirill/bb-plugin-project-folders.git@v0.6.19` for fresh installs. Simple does not install this companion. In 1.11, disabled plugins stay disabled and existing Pro installations do not gain absent optional companions.
+
+Older installer versions removed and reinstalled Projects & Sections and claimed all data was retained. That is no longer a safe assumption: current BB describes plugin removal as deleting settings, secrets and schedules. **The 1.11 installer never runs plugin remove.** It leaves an incompatible existing source alone by default. The explicit `--pin-folders` option attempts an in-place source installation, without first removing the existing plugin, and reports failure without uninstalling. Do not reinstate an automatic remove/downgrade flow.
 
 ## When to lift the pin
 
@@ -50,7 +52,7 @@ run "$E" "$D/server/dist/index.js" > /tmp/bb-clean/server.log 2>&1 &
 R=$(curl -s -X POST -H 'content-type: application/json' -d '{}' http://127.0.0.1:39886/internal/hosts/enroll-key)
 printf '%s' "$R" | python3 -c 'import sys,json;print(json.load(sys.stdin)["hostId"],end="")' > /tmp/bb-clean/data/host-id
 K=$(printf '%s' "$R" | python3 -c 'import sys,json;print(json.load(sys.stdin)["enrollKey"])')
-run BB_SERVER_URL=http://127.0.0.1:39886 BB_HOST_ENROLL_KEY="$K" "$E" "$D/host-daemon/dist/daemon-bundle.mjs" > /tmp/bb-clean/daemon.log 2>&1 &
+run BB_SERVER_URL=http://127.0.0.1:39886 BB_HOST_ENROLL_KEY="$K" BB_CLI_DIR="$D/host-daemon/dist" BB_BRIDGE_DIR="$D/host-daemon/dist" "$E" "$D/host-daemon/dist/daemon-bundle.mjs" > /tmp/bb-clean/daemon.log 2>&1 &
 
 # Point the CLI and the installer at it. Unset BB_PROJECT_ID and BB_THREAD_ID if you run this inside a bb chat.
 export BB_SERVER_URL=http://127.0.0.1:39886

@@ -1,0 +1,60 @@
+BB Overlay
+Copyright (c) 2026 NavAIgate GmbH & Co. KG (https://navaigate.dev)
+
+The software in this repository is licensed under the PolyForm Internal Use
+License 1.0.0 (see LICENSE). You may use and change it for yourself and for
+the internal operations of your own business. You may not distribute it,
+changed or unchanged, in any form.
+
+Name and logo
+-------------
+"NavAIgate", the NavAIgate logo and the ribbon-N mark are trademarks of
+NavAIgate GmbH & Co. KG. They are not licensed under LICENSE or any other
+terms in this repository. You may keep them in your own copy as shipped. You
+may not use them for anything else, and no copy, fork or derived work may be
+presented as your own work or as coming from anyone other than NavAIgate.
+
+Third-party names and logos shown in the interface (Gmail, Google Calendar,
+Calendly, Composio, ElevenLabs, Blotato, Claude, Codex, Cursor and others)
+belong to their owners and are shown only to identify those services.
+
+Companion plugins (not part of this software)
+---------------------------------------------
+install.sh also installs two plugins made by other people. They are not part
+of BB Overlay, are not covered by LICENSE or this NOTICE, and are not ours.
+They install directly from their authors' own repositories, under their own
+MIT licences, and keep their own updates:
+
+- Projects & Sections (project-folders), by VKirill, MIT licence:
+  https://github.com/VKirill/bb-plugin-project-folders
+- Agent Board (agent-board), by aaronphifer, MIT licence:
+  https://github.com/aaronphifer/bb-plugin-agent-board
+
+Additional permissions
+----------------------
+NavAIgate GmbH & Co. KG grants the following permissions in addition to
+LICENSE. They do not change the text of LICENSE. Where the paragraphs above
+say you may not distribute the software, permission 1 below is the only
+exception.
+
+1. Contributions welcome. Anyone may make a public fork of this repository,
+   on GitHub or a similar service, solely to propose changes back to this
+   repository through pull requests, and may keep that fork public while
+   those changes are under review. This is an additional permission, not a
+   licence to redistribute the software or to use the fork as a product.
+   The terms for contributions are in CONTRIBUTING.md.
+
+2. Your team is covered. Your employees and contractors (people working for
+   you, under your direction) may use and modify your copy for your
+   organisation's work, under your licence.
+
+3. Still prohibited. You may not:
+   - sell the software;
+   - redistribute copies, changed or unchanged, other than a contribution
+     fork under permission 1;
+   - repackage it as a product, course, template, starter kit or community
+     perk;
+   - offer it as a hosted service;
+   - remove the NavAIgate name and attribution.
+
+These additional permissions were added on 13 October 2026.

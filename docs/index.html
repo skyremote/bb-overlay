@@ -134,11 +134,11 @@
     <div class="wrap">
       <div class="caps">Step one</div>
       <h2>Install it in <em class="f">one</em> command</h2>
-      <p>You need bb 0.45 or later, on a Mac or on Linux, and at least one harness signed in. Open bb, then paste this one line into a terminal, and it installs the workspace, the Kanban board, folders, the agent board and bb's Tasks, then turns on the NavAIgate theme and rail.</p>
+      <p>You need bb 0.48 or later on Mac or Linux. A fresh install now starts with Simple: a quiet branded chat sidebar, Helper Desk, Cache Clock, Reflect, Screen Share and the guided walkthrough. Existing Pro installations keep their current interface and preferences.</p>
 <pre>curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash</pre>
       <p>Like to read a script before you run it? Good habit. <a href="https://github.com/skyremote/bb-overlay/blob/main/install.sh">Read install.sh first</a>, or see exactly what it would do without changing anything with <code>curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash -s -- --dry-run</code>. It's safe to run again any time to update everything, it never removes anything, and if you already use a different NavAIgate rail it leaves your look alone.</p>
-      <p>Then reload bb and open <b>Home</b> to walk through Set up. Not technical? The <a href="https://github.com/skyremote/bb-overlay/blob/main/INSTALL.md">step-by-step install guide</a> walks you through it.</p>
-      <p><b>Install by hand.</b> The same thing, one plugin at a time, then <b>Settings, Appearance</b>: the <b>NavAIgate</b> theme and the <b>NavAIgate rail</b> as the thread list.</p>
+      <p>For a fresh full <b>Pro</b> install, add <code>-s -- --edition pro</code> after <code>bash</code>. Then reload BB: the walkthrough highlights each real control and requires a read acknowledgement before advancing. No videos. Pause and resume, or replay from <b>Settings → Plugins → BB Overlay guide</b>. The detailed feature guide below describes the established Pro workspace. Not technical? The <a href="https://github.com/skyremote/bb-overlay/blob/main/INSTALL.md">step-by-step install guide</a> walks you through it.</p>
+      <p><b>Pro components by hand.</b> The established full workspace, one plugin at a time, then <b>Settings, Appearance</b>: the <b>NavAIgate</b> theme and the <b>NavAIgate rail</b> as the thread list.</p>
 <pre>bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin workspace
 bb plugin install git:https://github.com/skyremote/bb-overlay.git@main --plugin kanban
 bb plugin install git:https://github.com/VKirill/bb-plugin-project-folders.git@v0.6.19

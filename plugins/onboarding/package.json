@@ -1,0 +1,67 @@
+{
+  "name": "bb-plugin-bb-overlay-guide",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.48",
+    "bbPluginSdk": ">=0.6.94"
+  },
+  "bb": {
+    "name": "BB Overlay guide",
+    "description": "A step-by-step guide anchored to your real Simple or Pro workspace, with explicit read acknowledgements and saved progress.",
+    "branding": {
+      "icon": "BookOpen"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": [
+      "skills"
+    ]
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.94",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.11.1",
+    "cron-parser": "^5.10.2",
+    "esbuild": "^0.25.0",
+    "hono": "^4.13.14",
+    "jsdom": "^29.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.12"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "bb plugin build",
+    "fixture": "node fixtures/build.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skyremote/bb-overlay.git",
+    "directory": "plugins/onboarding"
+  },
+  "author": "NavAIgate (https://navaigate.dev)",
+  "license": "SEE LICENSE IN LICENSE",
+  "files": [
+    "app.tsx",
+    "guide.tsx",
+    "styles.css",
+    "server.ts",
+    "lib",
+    "skills",
+    "README.md",
+    "tsconfig.json",
+    "LICENSE",
+    "NOTICE"
+  ]
+}

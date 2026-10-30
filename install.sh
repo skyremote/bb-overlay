@@ -1,41 +1,27 @@
 #!/usr/bin/env bash
-# BB Overlay installer, from NavAIgate (https://navaigate.dev).
-#
-# Installs everything BB Overlay uses, in one go:
-#   - NavAIgate Workspace and Kanban, from this repository
-#   - the five mods, from this repository (bb 0.46 or later): Helper Desk,
-#     Cache Clock, Reflect, Screen Share and Finder Links
-#   - NavMotion Skin, from this repository (bb 0.47 or later): three moving
-#     skins, a Skin button and Markdown in the chat box
-#   - Projects & Sections (project-folders) by VKirill, MIT, from its own repository
-#   - Agent Board by aaronphifer, MIT, from its own repository
-#   - bb's built-in Tasks plugin (opt-in in bb, so it is installed if missing)
-# then turns on the NavAIgate theme and rail, reloads, and prints a checklist.
-#
-# Safe to run again: anything already installed is updated within its own pin,
-# and nothing is removed or downgraded without asking. The one thing it asks
-# about: Projects & Sections at 0.6.20 or later, or following a version range,
-# which it offers to switch to the pinned 0.6.19 (your folders are kept). A
-# plugin you installed from somewhere else (a local copy, say) is left exactly
-# as it is.
+# BB Overlay 1.11 — Simple and Pro, from NavAIgate.
+# Fresh installs default to Simple; existing installs keep their edition and look.
+# Simple installs the lean sidebar, Helper Desk, Cache Clock, Reflect, Screen Share
+# and an acknowledged guided tour. Pro retains the established full workspace.
+# No plugin is removed, no saved data is deleted, and disabled extras stay disabled.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/skyremote/bb-overlay/main/install.sh | bash
-#   bash install.sh [--dry-run] [--no-look] [--no-mods] [--pin-folders] [--help]
+#   bash install.sh [--edition simple|pro] [--dry-run] [--no-look] [--no-mods]
 #
-#   --dry-run       print every command, change nothing
-#   --no-look       leave the theme, navigation and sidebar list as they are
-#   --no-mods       skip the five mods (Helper Desk, Cache Clock, Reflect,
-#                   Screen Share, Finder Links); ones you already have are left as they are
-#   --pin-folders   switch Projects & Sections to 0.6.19 without asking
-#                   (your folders are kept); see MAINTAINERS.md
+#   --edition simple|pro  choose explicitly (existing choices otherwise preserved)
+#   --dry-run             print mutations without making changes
+#   --no-look             leave theme, navigation and thread-list preferences alone
+#   --no-mods             skip the helper plugins
+#   --pin-folders         reinstall compatible folders in place; never remove data
+#   --help                show this help
 
 set -euo pipefail
 
 EDITION="BB Overlay"
 REPO_URL="https://github.com/skyremote/bb-overlay.git"
 REPO_REF="main"
-MIN_BB="0.45"
+MIN_BB="0.48"
 MIN_BB_MODS="0.46"
 
 # Either NavAIgate edition counts as ours: the public BB Overlay and the
@@ -65,21 +51,26 @@ DRY_RUN=0
 SET_LOOK=1
 SET_MODS=1
 PIN_FOLDERS=0
-for arg in "$@"; do
-  case "$arg" in
+REQUESTED_EDITION=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --edition)
+      [ "$#" -ge 2 ] || { echo "--edition needs simple or pro" >&2; exit 2; }
+      REQUESTED_EDITION="$2"; shift ;;
+    --edition=*) REQUESTED_EDITION="${1#*=}" ;;
     --dry-run) DRY_RUN=1 ;;
     --no-look) SET_LOOK=0 ;;
     --no-mods) SET_MODS=0 ;;
     --pin-folders) PIN_FOLDERS=1 ;;
     -h|--help)
-      if [ -f "$0" ]; then awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"
-      else echo "Options: --dry-run, --no-look, --no-mods, --pin-folders. Run with bash -s -- <option> after the pipe."; fi
+      if [ -f "$0" ]; then sed -n '2,/^set -euo pipefail/p' "$0" | sed '$d;s/^# *//'
+      else printf '%s\n' 'Options: --edition simple|pro --dry-run --no-look --no-mods --pin-folders'; fi
       exit 0 ;;
-    *) echo "Unknown option: $arg (try --help)" >&2; exit 2 ;;
+    *) echo "Unknown option: $1 (try --help)" >&2; exit 2 ;;
   esac
+  shift
 done
-
-SET_LOOK_REQUESTED=$SET_LOOK
+case "$REQUESTED_EDITION" in ""|simple|pro) ;; *) echo "--edition must be simple or pro" >&2; exit 2 ;; esac
 
 W_INST="[installed]"; W_UPD="[up to date]"
 if [ "$DRY_RUN" -eq 1 ]; then W_INST="[would install]"; W_UPD="[would update]"; fi
@@ -99,6 +90,7 @@ run() {
 
 CHANGED=()   # plugin ids installed or updated in this run (reloaded at the end)
 OUTCOME=()   # checklist lines
+FAILURES=0
 
 # ---------------------------------------------------------------- bb itself
 step "Checking bb"
@@ -124,7 +116,7 @@ version_lt() { # true when $1 < $2 (major.minor.patch)
   return 1
 }
 if version_lt "$BB_VERSION" "$MIN_BB"; then
-  warn "BB Overlay is tested on bb $MIN_BB and later. Update bb first (bb updates, or download it again from getbb.app); installing anyway."
+  die "BB Overlay 1.11 needs bb $MIN_BB or later. Update bb first, then run this again."
 fi
 
 PLUGIN_LIST="$(bb plugin list 2>/dev/null)" || die "bb is installed but not answering. Open the bb app, wait for it to load, then run this again."
@@ -184,23 +176,17 @@ folders_existing() {
     OUTCOME+=("[ok]         $label ($ver, pinned)")
     return 0
   fi
-  warn "$label: $why. $PF_VERSION is the last release for standard bb, and switching to it keeps your folders."
-  if [ "$DRY_RUN" -eq 1 ]; then
-    say "Would ask to switch to $PF_VERSION (or switch without asking with --pin-folders). A yes runs:"
-    run bb plugin remove project-folders --yes
-    run bb plugin install "$PF_SOURCE" --yes
-    OUTCOME+=("[would ask]  $label ($ver): switch to $PF_VERSION, pinned")
-  elif [ "$PIN_FOLDERS" -eq 1 ] || ask "Switch $label to $PF_VERSION, pinned? Your folders are kept."; then
-    if run bb plugin remove project-folders --yes && run bb plugin install "$PF_SOURCE" --yes; then
-      CHANGED+=("project-folders"); OUTCOME+=("$W_INST $label ($PF_VERSION, pinned; your folders kept)")
+  warn "$label: $why. $PF_VERSION is compatible with standard bb."
+  if [ "$PIN_FOLDERS" -eq 1 ]; then
+    if run bb plugin install "$PF_SOURCE" --yes; then
+      CHANGED+=("project-folders"); OUTCOME+=("$W_INST $label (in-place source update)")
     else
-      warn "The switch didn't finish. Putting back what you had."
-      bb plugin list 2>/dev/null | grep -q '^project-folders@' || run bb plugin install "$src" --yes || true
-      OUTCOME+=("[FAILED]     $label: switch to $PF_VERSION failed, see above")
+      warn "The in-place folder update failed; no uninstall was attempted."
+      OUTCOME+=("[FAILED]     $label: kept existing installation")
+      FAILURES=$((FAILURES + 1))
     fi
   else
-    say "Left as it is. To switch later, run this installer again with --pin-folders (after a pipe: bash -s -- --pin-folders)."
-    OUTCOME+=("[warning]    $label ($ver): not pinned to $PF_VERSION; run again with --pin-folders")
+    OUTCOME+=("[kept]       $label: run with --pin-folders for an in-place compatible update")
   fi
 }
 
@@ -210,6 +196,14 @@ ensure() {
   local id="$1" label="$2" match="$3"; shift 3
   local line src status fallback="${FALLBACK:-}"
   line="$(plugin_line "$id")"
+  if [ -z "$line" ] && [ "${PRESERVE_PRO:-0}" -eq 1 ] && [ "$id" != "bb-overlay-guide" ]; then
+    OUTCOME+=("[kept]       $label (not part of your existing Pro installation)")
+    return 0
+  fi
+  if [ -n "$line" ] && [ "${line#* }" = "disabled" ]; then
+    OUTCOME+=("[kept]       $label (disabled by you)")
+    return 0
+  fi
   if [ -z "$line" ]; then
     say "$label: not installed, installing."
     if run bb plugin install "$@" --yes; then
@@ -219,6 +213,7 @@ ensure() {
       CHANGED+=("$id"); OUTCOME+=("$W_INST $label (${fallback##*@}, the last release for this bb)")
     else
       OUTCOME+=("[FAILED]     $label: install failed, see above")
+      FAILURES=$((FAILURES + 1))
     fi
     return 0
   fi
@@ -242,125 +237,154 @@ ensure() {
       OUTCOME+=("[ok]         $label (update check failed, kept ${line%% *})")
     fi
   fi
-  if [ "$status" = "disabled" ]; then
-    say "$label is turned off, turning it on."
-    run bb plugin enable "$id" || warn "Couldn't turn on $label. Try: bb plugin enable $id"
-  fi
+
 }
+
+# ---------------------------------------------------------------- edition
+CURRENT_EDITION=""
+SELECTED_LIST="$(bb settings ui get sidebar.threadListProvider 2>/dev/null | tr -d '"[:space:]' || true)"
+if [[ "$SELECTED_LIST" == navaigate-simple/* ]] && [ -n "$(plugin_line navaigate-simple)" ]; then
+  CURRENT_EDITION=simple
+elif [[ "$SELECTED_LIST" == navaigate-workspace/* || "$SELECTED_LIST" == navaigate-skin/* ]] && [ -n "$(plugin_line navaigate-workspace)$(plugin_line navaigate-skin)" ]; then
+  CURRENT_EDITION=pro
+elif [ -n "$(plugin_line navaigate-simple)" ] && [ "$(plugin_line navaigate-simple | awk '{print $2}')" != "disabled" ]; then
+  CURRENT_EDITION=simple
+elif [ -n "$(plugin_line navaigate-workspace)$(plugin_line navaigate-skin)" ]; then
+  CURRENT_EDITION=pro
+fi
+EDITION="${REQUESTED_EDITION:-${CURRENT_EDITION:-simple}}"
+if [ "$SET_LOOK" -eq 0 ] && [ -n "$CURRENT_EDITION" ] && [ "$EDITION" != "$CURRENT_EDITION" ]; then
+  die "--no-look cannot switch editions: the old thread list would point at a disabled core. Remove --no-look to switch, or omit --edition to update your current setup."
+fi
+
+PRESERVE_PRO=0
+[ "$EDITION" = pro ] && [ -n "$(plugin_line navaigate-workspace)$(plugin_line navaigate-skin)" ] && PRESERVE_PRO=1
+KEEP_LOOK=0
+[ -n "$CURRENT_EDITION" ] && [ "$EDITION" = "$CURRENT_EDITION" ] && KEEP_LOOK=1
+step "BB Overlay: $EDITION"
+say "Fresh installs default to Simple. Choose another edition with --edition simple or --edition pro."
+
+# Save only appearance values when explicitly moving from Pro to Simple.
+# Separate text files avoid requiring Python/Node on a member's computer.
+SAVED_LOOK="${XDG_CONFIG_HOME:-$HOME/.config}/bb-overlay/pro-look"
+if [ "$DRY_RUN" -eq 0 ] && [ "$SET_LOOK" -eq 1 ] && [ "$CURRENT_EDITION" = pro ] && [ "$EDITION" = simple ]; then
+  mkdir -p "$SAVED_LOOK"
+  bb settings ui get sidebar.threadListProvider > "$SAVED_LOOK/thread-list.json"
+  bb settings ui get sidebar.navigationProvider > "$SAVED_LOOK/navigation.json"
+  bb theme show | sed -n '1s/.*(\(.*\))$/\1/p' > "$SAVED_LOOK/theme.txt"
+fi
 
 # ---------------------------------------------------------------- plugins
-step "Installing $EDITION"
-ensure "$WS_ID" "NavAIgate Workspace" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin workspace
-ensure "kanban" "Kanban" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin kanban
-
-step "Installing the mods"
-if [ "$SET_MODS" -eq 0 ]; then
-  say "Skipped (--no-mods)."
-  OUTCOME+=("[skipped]    Mods: Helper Desk, Cache Clock, Reflect, Screen Share, Finder Links (--no-mods)")
-elif version_lt "$BB_VERSION" "$MIN_BB_MODS"; then
-  say "The mods need bb $MIN_BB_MODS or later; this is bb $BB_VERSION. Skipping them for now."
-  OUTCOME+=("[skipped]    Mods: need bb $MIN_BB_MODS or later, then run this again")
+if [ "$EDITION" = simple ]; then
+  WS_ID=navaigate-simple
+  ensure "$WS_ID" "NavAIgate Simple" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin simple
 else
-  ensure "helper-desk" "Helper Desk (sub-agents at a glance)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin helper-desk
-  ensure "cache-clock" "Cache Clock (cache countdown, Keep warm, Hand off)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin cache-clock
-  ensure "reflect" "Reflect (save the rules you give your agents)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin reflect
-  ensure "screen-share" "Screen Share (hide names and amounts on screen)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin screen-share
-  ensure "finder-links" "Finder Links (click a path in a reply to show it in Finder)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin finder-links
+  WS_ID=navaigate-workspace
+  # Honour the selected (or saved) Pro provider before considering another
+  # installed core. A disabled personal skin must not replace a selected public one.
+  PRO_LIST="$SELECTED_LIST"
+  if [ "$CURRENT_EDITION" = simple ] && [ -s "$SAVED_LOOK/thread-list.json" ]; then PRO_LIST="$(tr -d '"[:space:]' < "$SAVED_LOOK/thread-list.json")"; fi
+  if [[ "$PRO_LIST" == navaigate-skin/* ]] && [ -n "$(plugin_line navaigate-skin)" ]; then
+    WS_ID=navaigate-skin
+  elif [[ "$PRO_LIST" == navaigate-workspace/* ]] && [ -n "$(plugin_line navaigate-workspace)" ]; then
+    WS_ID=navaigate-workspace
+  elif [ -n "$(plugin_line navaigate-skin)" ] && [ "$(plugin_line navaigate-skin | awk '{print $2}')" != disabled ]; then
+    WS_ID=navaigate-skin
+  elif [ -n "$(plugin_line navaigate-workspace)" ]; then
+    WS_ID=navaigate-workspace
+  elif [ -n "$(plugin_line navaigate-skin)" ]; then
+    WS_ID=navaigate-skin
+  fi
+  ensure "$WS_ID" "NavAIgate Pro (existing workspace)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin workspace
+  ensure kanban Kanban "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin kanban
 fi
+THEME_ID="plugin:${WS_ID}:navaigate"
+RAIL_ID="${WS_ID}/rail"
 
-step "Installing NavMotion Skin"
-if version_lt "$BB_VERSION" "0.47"; then
-  say "NavMotion Skin needs bb 0.47 or later; this is bb $BB_VERSION. Skipping it for now."
-  OUTCOME+=("[skipped]    NavMotion Skin: needs bb 0.47 or later, then run this again")
-else
-  ensure "navmotion-skin" "NavMotion Skin (moving skins, a Skin button, Markdown in the chat box)" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin navmotion-skin
+if [ "$SET_MODS" -eq 1 ]; then
+  for mod in helper-desk cache-clock reflect screen-share; do
+    ensure "$mod" "$mod" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin "$mod"
+  done
 fi
+if [ "$EDITION" = pro ]; then
+  ensure finder-links "Finder Links" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin finder-links
+  ensure navmotion-skin "NavMotion Skin" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin navmotion-skin
+  FALLBACK="$PF_FALLBACK" ensure project-folders "Projects & Sections" "$PF_MATCH" "$PF_SOURCE"
+  ensure agent-board "Agent Board" "$AB_MATCH" "$AB_SOURCE"
+  ensure tasks "Tasks (built into bb)" "" tasks
+fi
+ensure bb-overlay-guide "BB Overlay guide" "$NAV_MATCH" "git:${REPO_URL}@${REPO_REF}" --plugin onboarding
 
-step "Installing the companions (made by other people, MIT, from their own repositories)"
-FALLBACK="$PF_FALLBACK" ensure "project-folders" "Projects & Sections by VKirill (folders, Move to folder)" "$PF_MATCH" "$PF_SOURCE"
-ensure "agent-board" "Agent Board by aaronphifer" "$AB_MATCH" "$AB_SOURCE"
-
-step "Checking bb's built-in plugins"
-# Tasks powers To-do and the Board. It ships with bb but is opt-in.
-ensure "tasks" "Tasks (built into bb; To-do and Board)" "" tasks
-# Account Pooler is optional: it routes Claude and Codex traffic across your
-# accounts, so we report it rather than switch it on for you.
-ap="$(plugin_line account-pool)"
-case "${ap#* }" in
-  "") OUTCOME+=("[optional]   Account Pooler (built into bb): not present in this bb") ;;
-  disabled) OUTCOME+=("[optional]   Account Pooler (built into bb) is off. Turn it on with: bb plugin enable account-pool, then add accounts with: bb pool") ;;
-  *) OUTCOME+=("[ok]         Account Pooler (built into bb)") ;;
-esac
-
-# ---------------------------------------------------------------- reload
+# Build/reload before touching the working edition. Keep its core running until
+# the replacement's appearance preferences have been applied successfully.
 if [ "${#CHANGED[@]}" -gt 0 ]; then
-  step "Reloading"
-  for id in "${CHANGED[@]}"; do run bb plugin reload "$id" || warn "Couldn't reload $id. Reload bb with Cmd-R (Ctrl-R on Linux)."; done
-fi
-
-# ---------------------------------------------------------------- the look
-manual_look() {
-  say "Set the look by hand in bb: Settings, Appearance."
-  say "  Theme: NavAIgate"
-  say "  Thread list: NavAIgate rail"
-  say "  Navigation: Rail (bb 0.47 or later)"
-}
-step "The NavAIgate theme and rail"
-if [ "$SET_LOOK" -eq 0 ]; then
-  say "Skipped (--no-look)."
-  OUTCOME+=("[skipped]    Theme and rail (--no-look)")
-elif ! bb theme --help >/dev/null 2>&1 || ! bb settings ui --help >/dev/null 2>&1; then
-  manual_look
-  OUTCOME+=("[by hand]    Theme and rail: Settings, Appearance")
-else
-  rail="$(bb settings ui get sidebar.threadListProvider 2>/dev/null | tr -d '"[:space:]' || true)"
-  theme="$(bb theme show 2>/dev/null | head -n1 || true)"
-  if [ "$rail" = "$RAIL_ID" ]; then
-    say "The NavAIgate rail is already your sidebar list."
-  elif [[ "$rail" == *navaigate* ]]; then
-    # Another NavAIgate rail (a personal build) is in use: leave the look alone.
-    say "Another NavAIgate rail ($rail) is your sidebar list. Leaving your theme and rail as they are."
-    OUTCOME+=("[kept]       Theme and rail (your own NavAIgate rail: $rail)")
-    SET_LOOK=0
-  else
-    [ -n "$rail" ] && say "Sidebar list was: $rail (to go back: bb settings ui set sidebar.threadListProvider $rail)"
-    run bb settings ui set sidebar.threadListProvider "$RAIL_ID" || { warn "Couldn't set the rail."; manual_look; }
-  fi
-  if [ "$SET_LOOK" -eq 1 ]; then
-    if [[ "$theme" == *"$THEME_ID"* ]]; then
-      say "The NavAIgate theme is already on."
-    else
-      [ -n "$theme" ] && say "Theme was: $theme (to go back: bb theme reset, or bb theme set <id>)"
-      run bb theme set "$THEME_ID" || { warn "Couldn't set the theme."; manual_look; }
+  for id in "${CHANGED[@]}"; do
+    if ! run bb plugin reload "$id"; then
+      FAILURES=$((FAILURES + 1)); OUTCOME+=("[FAILED]     Reload $id; previous edition kept")
     fi
-    OUTCOME+=("[ok]         NavAIgate theme and rail")
-  fi
+  done
+fi
+if [ "$FAILURES" -eq 0 ] && [ -n "$REQUESTED_EDITION" ] && [ "$(plugin_line "$WS_ID" | awk '{print $2}')" = disabled ]; then
+  if ! run bb plugin enable "$WS_ID"; then FAILURES=$((FAILURES + 1)); fi
 fi
 
-# Navigation and thread list are separate preferences. Since bb 0.47,
-# Automatic can pick another plugin's navigation list above the chats.
-# Pin the bundled icon rail even when preserving a personal NavAIgate theme.
-if [ "$SET_LOOK_REQUESTED" -eq 1 ] && ! version_lt "$BB_VERSION" "0.47"; then
-  nav="$(bb settings ui get sidebar.navigationProvider 2>/dev/null | tr -d '"[:space:]' || true)"
-  if [ "$nav" = "navigation/rail" ]; then
-    say "Navigation is already the left icon rail."
-    OUTCOME+=("[ok]         Left icon rail (navigation/rail)")
-  elif run bb settings ui set sidebar.navigationProvider navigation/rail; then
-    OUTCOME+=("[ok]         Left icon rail (navigation/rail)")
+# ---------------------------------------------------------------- appearance
+if [ "$FAILURES" -eq 0 ] && [ "$SET_LOOK" -eq 1 ] && [ "$KEEP_LOOK" -eq 0 ]; then
+  OLD_LIST="$(bb settings ui get sidebar.threadListProvider)"
+  OLD_NAV="$(bb settings ui get sidebar.navigationProvider)"
+  OLD_THEME="$(bb theme show | sed -n '1s/.*(\(.*\))$/\1/p')"
+  NEW_LIST="$RAIL_ID"; NEW_NAV=navigation/rail; NEW_THEME="$THEME_ID"
+  if [ "$EDITION" = pro ] && [ -s "$SAVED_LOOK/thread-list.json" ] && [ -s "$SAVED_LOOK/navigation.json" ] && [ -s "$SAVED_LOOK/theme.txt" ]; then
+    NEW_LIST="$(cat "$SAVED_LOOK/thread-list.json")"
+    NEW_NAV="$(cat "$SAVED_LOOK/navigation.json")"
+    NEW_THEME="$(cat "$SAVED_LOOK/theme.txt")"
+  fi
+  if run bb settings ui set sidebar.threadListProvider "$NEW_LIST" && run bb settings ui set sidebar.navigationProvider "$NEW_NAV" && run bb theme set "$NEW_THEME"; then
+    OUTCOME+=("[ok]         $EDITION appearance selected")
   else
-    warn "Couldn't set navigation. Open Settings, Appearance, Navigation and choose Rail."
-    OUTCOME+=("[by hand]    Navigation: Settings, Appearance, Navigation, Rail")
+    warn "Appearance selection failed. Restoring previous values; its core remains enabled."
+    run bb settings ui set sidebar.threadListProvider "$OLD_LIST" || warn "Restore thread list manually in Settings, Appearance."
+    run bb settings ui set sidebar.navigationProvider "$OLD_NAV" || warn "Restore navigation manually in Settings, Appearance."
+    [ -z "$OLD_THEME" ] || run bb theme set "$OLD_THEME" || warn "Restore theme manually in Settings, Appearance."
+    FAILURES=$((FAILURES + 1))
   fi
+elif [ "$KEEP_LOOK" -eq 1 ]; then
+  say "Your existing $EDITION appearance, rail, tabs, plugins and settings are kept."
 fi
 
-# ---------------------------------------------------------------- checklist
-step "Checklist"
-[ "$DRY_RUN" -eq 1 ] && say "(dry run: nothing was changed)"
-for l in "${OUTCOME[@]}"; do say "  $l"; done
-cat <<EOF
+if [ "$FAILURES" -eq 0 ] && [ -n "$REQUESTED_EDITION" ]; then
+  OTHER_CORES=navaigate-simple
+  [ "$EDITION" != simple ] || OTHER_CORES="navaigate-workspace navaigate-skin"
+  DISABLED_CORES=""
+  for id in $OTHER_CORES; do
+    if [ -n "$(plugin_line "$id")" ] && [ "$(plugin_line "$id" | awk '{print $2}')" != disabled ]; then
+      if run bb plugin disable "$id"; then DISABLED_CORES="$DISABLED_CORES $id"
+      else
+        for restore_id in $DISABLED_CORES; do run bb plugin enable "$restore_id" || true; done
+        [ -z "${OLD_LIST:-}" ] || run bb settings ui set sidebar.threadListProvider "$OLD_LIST" || true
+        [ -z "${OLD_NAV:-}" ] || run bb settings ui set sidebar.navigationProvider "$OLD_NAV" || true
+        [ -z "${OLD_THEME:-}" ] || run bb theme set "$OLD_THEME" || true
+        FAILURES=$((FAILURES + 1)); break
+      fi
+    fi
+  done
+fi
 
-Next:
-  1. Reload bb (Cmd-R on a Mac, Ctrl-R on Linux).
-  2. Open Home in the sidebar and walk through Set up.
-Run this again any time to update everything. It never removes anything without asking.
-EOF
+# Configure the guide only after all required installs succeeded. An existing
+# disabled guide remains disabled; its completed/dismissed progress is never reset.
+if [ "$FAILURES" -eq 0 ]; then
+  run bb plugin config bb-overlay-guide set edition "$EDITION"
+  run bb plugin config bb-overlay-guide set autoStart true
+fi
+
+step "Checklist"
+[ "$DRY_RUN" -eq 1 ] && say "Dry run: nothing changed."
+for line in "${OUTCOME[@]}"; do say "  $line"; done
+if [ "$FAILURES" -gt 0 ]; then die "$FAILURES required install(s) failed. Your previous edition was not switched and onboarding was not started."; fi
+if [ "$(plugin_line bb-overlay-guide | awk '{print $2}')" = disabled ]; then
+  say "Your guide is disabled and was left disabled. Enable bb-overlay-guide when you want to use it."
+else
+  say "Reload bb (Cmd-R on Mac, Ctrl-R on Linux). The guided tour will offer to start."
+fi
+say "Each step needs your acknowledgement. Close to pause; replay from Settings, BB Overlay guide."
+say "Run this again to update. Disabled plugins, saved data and existing appearance are preserved."
